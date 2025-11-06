@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cutrix-postgres
+    environment:
+      POSTGRES_DB: cutrix
+      POSTGRES_USER: cutrix
+      POSTGRES_PASSWORD: cutrix
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cutrix -d cutrix"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
