@@ -7,8 +7,11 @@ import (
     "os"
     "path/filepath"
     "strings"
+    "log/slog"
 
     _ "github.com/jackc/pgx/v5/stdlib"
+
+    "cutrix-backend/internal/logger"
 )
 
 // Open initializes a PostgreSQL connection using pgx driver.
@@ -56,5 +59,7 @@ func RunMigrations(db *sql.DB, scriptRelPath string) error {
     if _, err := db.Exec(sqlText); err != nil {
         return fmt.Errorf("executing migrations failed: %w", err)
     }
+    // Structured log: migrations applied successfully
+    logger.L.Info("migrations_applied", slog.String("script", scriptRelPath))
     return nil
 }

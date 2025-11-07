@@ -2,7 +2,9 @@ package main
 
 import (
     "log"
-
+    "os"
+    "time"
+    
     "github.com/gin-gonic/gin"
 
     "cutrix-backend/internal/config"
@@ -11,9 +13,12 @@ import (
     "cutrix-backend/internal/middleware"
     "cutrix-backend/internal/repositories"
     "cutrix-backend/internal/services"
+    "cutrix-backend/internal/logger"
 )
 
 func main() {
+    // Structured JSON logger initialized via package init (LOG_LEVEL controls verbosity)
+
     cfg := config.Load()
 
     // Initialize services (nil by default if DB not configured)
@@ -22,15 +27,19 @@ func main() {
     var layoutsSvc services.LayoutsService
     var tasksSvc services.TasksService
     var logsSvc services.LogsService
+    var usersSvc services.UsersService
+    var authSvc services.AuthService
 
     if cfg.DatabaseURL != "" {
         conn, err := db.Open(cfg.DatabaseURL)
         if err != nil {
-            log.Println("warn: database connect failed:", err)
+            logger.L.Warn("db_connect_failed", "error", err)
         } else {
             defer conn.Close()
             if err := db.RunMigrations(conn, "migrations/000001_initial_schema.up.sql"); err != nil {
-                log.Println("warn: migrations failed:", err)
+                logger.L.Warn("migrations_failed", "error", err)
+            } else {
+                logger.L.Info("migrations_applied", "script", "000001_initial_schema.up.sql")
             }
 
             // Wire repositories
@@ -39,6 +48,7 @@ func main() {
             layoutsRepo := repositories.NewSqlLayoutsRepository(conn)
             tasksRepo := repositories.NewSqlTasksRepository(conn)
             logsRepo := repositories.NewSqlLogsRepository(conn)
+            usersRepo := repositories.NewSqlUsersRepository(conn)
 
             // Wire services
             ordersSvc = services.NewOrdersService(ordersRepo)
@@ -46,19 +56,30 @@ func main() {
             layoutsSvc = services.NewLayoutsService(layoutsRepo)
             tasksSvc = services.NewTasksService(tasksRepo)
             logsSvc = services.NewLogsService(logsRepo)
+            usersSvc = services.NewUsersService(usersRepo)
+
+            // Auth service with env-secret and default TTLs
+            secret := os.Getenv("AUTH_SECRET")
+            if secret == "" { secret = "dev-secret" }
+            accessTTL := 15 * time.Minute
+            refreshTTL := 7 * 24 * time.Hour
+            authSvc = services.NewAuthService(usersRepo, secret, accessTTL, refreshTTL)
+            logger.L.Info("startup", "port", cfg.Port, "db", "connected")
         }
     } else {
-        log.Println("warn: DATABASE_URL not set; business endpoints will return db_not_configured")
+        logger.L.Warn("db_not_configured")
     }
 
     r := gin.New()
-    r.Use(gin.Logger())
+    // Replace gin.Logger with structured RequestLogger
+    // r.Use(gin.Logger())
     r.Use(gin.Recovery())
     r.Use(middleware.CORS())
     r.Use(middleware.RequestID())
+    r.Use(middleware.RequestLogger())
 
     api := r.Group("/api/v1")
-    handlers.NewHealthHandler().Register(api)
+    handlers.RegisterRoutes(api, authSvc, usersSvc)
     handlers.NewOrdersHandler(ordersSvc).Register(api)
     handlers.NewPlansHandler(plansSvc).Register(api)
     handlers.NewLayoutsHandler(layoutsSvc).Register(api)
@@ -67,7 +88,9 @@ func main() {
 
     r.NoRoute(func(c *gin.Context) { c.JSON(404, gin.H{"error": "route_not_found"}) })
 
+    logger.L.Info("api_listen", "addr", cfg.Port)
     if err := r.Run(cfg.Port); err != nil {
+        logger.L.Error("server_run_failed", "error", err)
         log.Fatal(err)
     }
 }

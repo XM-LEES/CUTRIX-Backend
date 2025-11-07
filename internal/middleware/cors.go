@@ -2,6 +2,7 @@ package middleware
 
 import "github.com/gin-gonic/gin"
 
+// CORS sets permissive CORS headers and handles preflight requests.
 func CORS() gin.HandlerFunc {
     return func(c *gin.Context) {
         c.Header("Access-Control-Allow-Origin", "*")

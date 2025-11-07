@@ -1,23 +1,22 @@
 package logger
 
 import (
-    "encoding/json"
-    "fmt"
-    "time"
+    "log/slog"
+    "os"
 )
 
-type Logger struct{}
+// L is the global slog logger used across the application.
+// It outputs JSON logs; level can be controlled via LOG_LEVEL env: debug|info|warn|error.
+var L *slog.Logger
 
-func New() *Logger { return &Logger{} }
-
-func (l *Logger) log(level, msg string, fields map[string]interface{}) {
-    if fields == nil { fields = map[string]interface{}{} }
-    fields["level"] = level
-    fields["msg"] = msg
-    fields["ts"] = time.Now().Format(time.RFC3339Nano)
-    b, _ := json.Marshal(fields)
-    fmt.Println(string(b))
+func init() {
+    // Configure handler: JSON with levels
+    level := new(slog.LevelVar)
+    switch os.Getenv("LOG_LEVEL") {
+    case "debug": level.Set(slog.LevelDebug)
+    case "warn":  level.Set(slog.LevelWarn)
+    case "error": level.Set(slog.LevelError)
+    default:       level.Set(slog.LevelInfo)
+    }
+    L = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 }
-
-func (l *Logger) Info(msg string, fields map[string]interface{}) { l.log("info", msg, fields) }
-func (l *Logger) Error(msg string, fields map[string]interface{}) { l.log("error", msg, fields) }

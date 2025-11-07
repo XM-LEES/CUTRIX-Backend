@@ -98,11 +98,12 @@ func buildRouter(conn *sql.DB) *gin.Engine {
 }
 
 // Small helper to perform JSON HTTP requests against the router
-func doJSON(r *gin.Engine, method, path string, body string) (*httptest.ResponseRecorder, *http.Request) {
+func doJSONAuth(r *gin.Engine, method, path string, body string, token string) (*httptest.ResponseRecorder, *http.Request) {
     var reader *strings.Reader
     if body != "" { reader = strings.NewReader(body) } else { reader = strings.NewReader("") }
     req, _ := http.NewRequest(method, path, reader)
     req.Header.Set("Content-Type", "application/json")
+    if token != "" { req.Header.Set("Authorization", "Bearer "+token) }
     w := httptest.NewRecorder()
     r.ServeHTTP(w, req)
     return w, req

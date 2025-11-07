@@ -1,80 +1,136 @@
 package integration
 
 import (
-    "encoding/json"
     "fmt"
     "net/http"
-    "net/http/httptest"
-    "os"
-    "strings"
+    "net/url"
     "testing"
     "time"
 
-    "github.com/gin-gonic/gin"
-
-    "cutrix-backend/internal/db"
-    "cutrix-backend/internal/handlers"
-    "cutrix-backend/internal/middleware"
     "cutrix-backend/internal/models"
-    "cutrix-backend/internal/repositories"
-    "cutrix-backend/internal/services"
 )
 
-func TestOrders_Create_And_Get(t *testing.T) {
-    gin.SetMode(gin.TestMode)
+func TestOrders_CRUD_Queries_Updates(t *testing.T) {
+    conn := openDBAndMigrate(t)
+    defer conn.Close()
+    r := buildRouter(conn)
 
-    dsn := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-    if dsn == "" { t.Fatalf("env DATABASE_URL is empty") }
+    now := time.Now().UTC()
+    nowDate := now.Truncate(time.Second)
+    orderNumber := fmt.Sprintf("ORD-%d", now.UnixNano())
 
-    // Ensure target database exists (connect to admin DB and create if missing)
-    ensureDatabaseExists(t, dsn)
+    createBody := fmt.Sprintf(`{
+        "order_number": "%s",
+        "style_number": "STYLE-100",
+        "customer_name": "ACME",
+        "order_start_date": "%s",
+        "note": "first order",
+        "items": [
+            {"color":"Red","size":"M","quantity":10},
+            {"color":"Blue","size":"L","quantity":5}
+        ]
+    }`, orderNumber, nowDate.Format(time.RFC3339))
 
-    conn, err := db.Open(dsn)
-    if err != nil { t.Fatalf("db open: %v", err) }
-    t.Cleanup(func(){ conn.Close() })
-
-    // Apply migrations (idempotent)
-    mp := migrationsPath(t, "000001_initial_schema.up.sql")
-    if err := db.RunMigrations(conn, mp); err != nil {
-        t.Fatalf("migrate: %v", err)
+    // Create with items
+    w, _ := doJSONAuth(r, "POST", "/api/v1/orders", createBody, "")
+    if w.Code != http.StatusCreated {
+        t.Fatalf("create: want 201 got %d: %s", w.Code, w.Body.String())
     }
-
-    // Wire repository + service
-    ordersRepo := repositories.NewSqlOrdersRepository(conn)
-    ordersSvc := services.NewOrdersService(ordersRepo)
-
-    // Build router
-    r := gin.New()
-    r.Use(middleware.RequestID())
-    api := r.Group("/api/v1")
-    handlers.NewOrdersHandler(ordersSvc).Register(api)
-
-    // Prepare a unique order_number to avoid conflicts
-    orderNumber := fmt.Sprintf("ORD-IT-%d", time.Now().UnixNano())
-
-    // Create order
-    reqBody := strings.NewReader(fmt.Sprintf(`{"order_number":"%s","style_number":"STY-001","customer_name":"ACME"}`, orderNumber))
-    req, _ := http.NewRequest(http.MethodPost, "/api/v1/orders", reqBody)
-    req.Header.Set("Content-Type", "application/json")
-    w := httptest.NewRecorder()
-    r.ServeHTTP(w, req)
-    if w.Code != http.StatusCreated { t.Fatalf("create code=%d body=%s", w.Code, w.Body.String()) }
-
     var created models.ProductionOrder
-    if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
-        t.Fatalf("json: %v", err)
-    }
-    if created.OrderID == 0 { t.Fatalf("expected non-zero order_id") }
+    decodeJSON(t, w, &created)
+    if created.OrderID == 0 { t.Fatalf("created OrderID is 0") }
+    if created.OrderNumber != orderNumber { t.Fatalf("created order_number mismatch: %s", created.OrderNumber) }
 
-    // Get order
-    getReq, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/orders/%d", created.OrderID), nil)
-    w2 := httptest.NewRecorder()
-    r.ServeHTTP(w2, getReq)
-    if w2.Code != http.StatusOK { t.Fatalf("get code=%d body=%s", w2.Code, w2.Body.String()) }
+    id := created.OrderID
 
-    var fetched models.ProductionOrder
-    if err := json.Unmarshal(w2.Body.Bytes(), &fetched); err != nil {
-        t.Fatalf("json get: %v", err)
+    // List all orders and ensure created order exists
+    w, _ = doJSONAuth(r, "GET", "/api/v1/orders", "", "")
+    if w.Code != http.StatusOK {
+        t.Fatalf("list: want 200 got %d: %s", w.Code, w.Body.String())
     }
-    if fetched.OrderNumber != orderNumber { t.Fatalf("order_number mismatch: got=%s want=%s", fetched.OrderNumber, orderNumber) }
+    var list []models.ProductionOrder
+    decodeJSON(t, w, &list)
+    found := false
+    for _, o := range list {
+        if o.OrderID == id { found = true; break }
+    }
+    if !found { t.Fatalf("list: created order not found in list") }
+
+    // Get by ID
+    w, _ = doJSONAuth(r, "GET", fmt.Sprintf("/api/v1/orders/%d", id), "", "")
+    if w.Code != http.StatusOK {
+        t.Fatalf("get: want 200 got %d: %s", w.Code, w.Body.String())
+    }
+    var got models.ProductionOrder
+    decodeJSON(t, w, &got)
+    if got.OrderID != id { t.Fatalf("get: id mismatch") }
+
+    // Get by number
+    w, _ = doJSONAuth(r, "GET", fmt.Sprintf("/api/v1/orders/by-number/%s", url.PathEscape(orderNumber)), "", "")
+    if w.Code != http.StatusOK {
+        t.Fatalf("get by number: want 200 got %d: %s", w.Code, w.Body.String())
+    }
+    var byNum models.ProductionOrder
+    decodeJSON(t, w, &byNum)
+    if byNum.OrderID != id { t.Fatalf("get by number: id mismatch") }
+
+    // Get full
+    w, _ = doJSONAuth(r, "GET", fmt.Sprintf("/api/v1/orders/%d/full", id), "", "")
+    if w.Code != http.StatusOK {
+        t.Fatalf("get full: want 200 got %d: %s", w.Code, w.Body.String())
+    }
+    var full struct {
+        Order models.ProductionOrder `json:"order"`
+        Items []models.OrderItem `json:"items"`
+    }
+    decodeJSON(t, w, &full)
+    if full.Order.OrderID != id { t.Fatalf("get full: order id mismatch") }
+    if len(full.Items) != 2 { t.Fatalf("get full: want 2 items got %d", len(full.Items)) }
+
+    // Update note
+    w, _ = doJSONAuth(r, "PATCH", fmt.Sprintf("/api/v1/orders/%d/note", id), `{"note":"updated note"}`, "")
+    if w.Code != http.StatusNoContent {
+        t.Fatalf("update note: want 204 got %d: %s", w.Code, w.Body.String())
+    }
+
+    // Update finish date
+    finish := nowDate.Add(24 * time.Hour)
+    w, _ = doJSONAuth(r, "PATCH", fmt.Sprintf("/api/v1/orders/%d/finish-date", id), fmt.Sprintf(`{"order_finish_date":"%s"}`, finish.Format(time.RFC3339)), "")
+    if w.Code != http.StatusNoContent {
+        t.Fatalf("update finish date: want 204 got %d: %s", w.Code, w.Body.String())
+    }
+
+    // Verify updates
+    w, _ = doJSONAuth(r, "GET", fmt.Sprintf("/api/v1/orders/%d", id), "", "")
+    if w.Code != http.StatusOK {
+        t.Fatalf("get after updates: want 200 got %d: %s", w.Code, w.Body.String())
+    }
+    var updated models.ProductionOrder
+    decodeJSON(t, w, &updated)
+    if updated.Note == nil || *updated.Note != "updated note" {
+        t.Fatalf("note not updated: %+v", updated.Note)
+    }
+    if updated.OrderFinishDate == nil || !updated.OrderFinishDate.Equal(finish) {
+        t.Fatalf("finish date not updated: %+v", updated.OrderFinishDate)
+    }
+
+    // Delete
+    w, _ = doJSONAuth(r, "DELETE", fmt.Sprintf("/api/v1/orders/%d", id), "", "")
+    if w.Code != http.StatusNoContent {
+        t.Fatalf("delete: want 204 got %d: %s", w.Code, w.Body.String())
+    }
+
+    // Ensure 404 after deletion
+    w, _ = doJSONAuth(r, "GET", fmt.Sprintf("/api/v1/orders/%d", id), "", "")
+    if w.Code != http.StatusNotFound {
+        t.Fatalf("get after delete: want 404 got %d: %s", w.Code, w.Body.String())
+    }
+    w, _ = doJSONAuth(r, "GET", fmt.Sprintf("/api/v1/orders/%d/full", id), "", "")
+    if w.Code != http.StatusNotFound {
+        t.Fatalf("get full after delete: want 404 got %d: %s", w.Code, w.Body.String())
+    }
+    w, _ = doJSONAuth(r, "GET", fmt.Sprintf("/api/v1/orders/by-number/%s", url.PathEscape(orderNumber)), "", "")
+    if w.Code != http.StatusNotFound {
+        t.Fatalf("get by number after delete: want 404 got %d: %s", w.Code, w.Body.String())
+    }
 }

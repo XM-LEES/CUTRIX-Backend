@@ -6,7 +6,7 @@ import (
     "github.com/gin-gonic/gin"
 )
 
-// RequestID 将请求ID注入上下文与响应头，便于日志关联
+// RequestID injects a request ID into context and response headers for log correlation.
 func RequestID() gin.HandlerFunc {
     return func(c *gin.Context) {
         rid := c.GetHeader("X-Request-ID")
