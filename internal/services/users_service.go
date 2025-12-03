@@ -14,15 +14,19 @@ type UsersService interface {
     List(ctx context.Context, filter UsersFilter) ([]UserDTO, error)
 
     // Create creates a user with role and optional group/note.
-    Create(ctx context.Context, name string, role string, group *string, note *string) (*UserDTO, error)
+    // currentUserID and currentUserRole are required for permission checks.
+    Create(ctx context.Context, currentUserID int, currentUserRole string, name string, role string, group *string, note *string) (*UserDTO, error)
     // UpdateProfile updates non-sensitive profile fields: name/user_group/note.
     UpdateProfile(ctx context.Context, userID int, fields UpdateUserFields) (*UserDTO, error)
     // AssignRole updates user's role; sensitive operation with policy checks.
-    AssignRole(ctx context.Context, userID int, role string) error
+    // currentUserID and currentUserRole are required for permission checks.
+    AssignRole(ctx context.Context, currentUserID int, currentUserRole string, targetUserID int, role string) error
     // SetActive enables or disables a user; sensitive operation.
-    SetActive(ctx context.Context, userID int, active bool) error
+    // currentUserID and currentUserRole are required for permission checks.
+    SetActive(ctx context.Context, currentUserID int, currentUserRole string, targetUserID int, active bool) error
     // Delete removes a user.
-    Delete(ctx context.Context, userID int) error
+    // currentUserID and currentUserRole are required for permission checks.
+    Delete(ctx context.Context, currentUserID int, currentUserRole string, targetUserID int) error
 }
 
 // UpdateUserFields contains non-sensitive profile fields to update.

@@ -27,6 +27,8 @@ import "cutrix-backend/internal/models"
 
     // 查询：按 ID 获取计划详情。
     GetByID(id int) (*models.ProductionPlan, error)
+    // 查询：列出所有计划。
+    List() ([]models.ProductionPlan, error)
     // 查询：按订单列出所有计划。
     ListByOrder(orderID int) ([]models.ProductionPlan, error)
 }

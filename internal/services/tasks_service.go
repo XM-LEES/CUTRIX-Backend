@@ -16,6 +16,8 @@ import "cutrix-backend/internal/models"
 
     // 查询：按 ID 获取任务详情。
     GetByID(id int) (*models.ProductionTask, error)
+    // 查询：列出所有任务。
+    List() ([]models.ProductionTask, error)
     // 查询：按布局列出任务列表。
     ListByLayout(layoutID int) ([]models.ProductionTask, error)
 }

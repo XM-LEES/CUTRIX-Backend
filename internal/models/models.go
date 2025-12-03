@@ -4,13 +4,13 @@ package models
 import "time"
 
 type User struct {
-    UserID       int    `json:"user_id"`
-    Name         string `json:"name"`
-    PasswordHash string `json:"-"`
-    Role         string `json:"role"`
-    IsActive     bool   `json:"is_active"`
-    Group        *string `json:"user_group,omitempty"`
-    Note         *string `json:"note,omitempty"`
+    UserID       int     `json:"user_id" db:"user_id"`
+    Name         string  `json:"name" db:"name"`
+    PasswordHash string  `json:"-" db:"password_hash"`
+    Role         string  `json:"role" db:"role"`
+    IsActive     bool    `json:"is_active" db:"is_active"`
+    Group        *string `json:"user_group,omitempty" db:"user_group"`
+    Note         *string `json:"note,omitempty" db:"note"`
 }
 
 type ProductionOrder struct {

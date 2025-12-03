@@ -90,7 +90,7 @@ func (h *UsersHandler) create(c *gin.Context) {
     if strings.TrimSpace(body.Name) == "" || strings.TrimSpace(body.Role) == "" {
         c.JSON(http.StatusBadRequest, gin.H{"error":"validation_error", "message":"name and role required"}); return
     }
-    out, err := h.users.Create(c.Request.Context(), body.Name, body.Role, body.Group, body.Note)
+    out, err := h.users.Create(c.Request.Context(), claims.UserID, claims.Role, body.Name, body.Role, body.Group, body.Note)
     if err != nil { writeSvcError(c, err); return }
     c.JSON(http.StatusCreated, out)
 }
@@ -121,12 +121,12 @@ func (h *UsersHandler) assignRole(c *gin.Context) {
     claims, ok := h.requireAuth(c)
     if !ok { return }
     if claims.Role != "admin" && claims.Role != "manager" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
-    id, err := strconv.Atoi(c.Param("id"))
+    targetUserID, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     var body struct{ Role string `json:"role"` }
     if err := c.ShouldBindJSON(&body); err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_json"}); return }
     if strings.TrimSpace(body.Role) == "" { c.JSON(http.StatusBadRequest, gin.H{"error":"validation_error", "message":"role required"}); return }
-    if err := h.users.AssignRole(c.Request.Context(), id, body.Role); err != nil { writeSvcError(c, err); return }
+    if err := h.users.AssignRole(c.Request.Context(), claims.UserID, claims.Role, targetUserID, body.Role); err != nil { writeSvcError(c, err); return }
     c.Status(http.StatusNoContent)
 }
 
@@ -136,12 +136,12 @@ func (h *UsersHandler) setActive(c *gin.Context) {
     claims, ok := h.requireAuth(c)
     if !ok { return }
     if claims.Role != "admin" && claims.Role != "manager" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
-    id, err := strconv.Atoi(c.Param("id"))
+    targetUserID, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     var body struct{ Active *bool `json:"active"` }
     if err := c.ShouldBindJSON(&body); err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_json"}); return }
     if body.Active == nil { c.JSON(http.StatusBadRequest, gin.H{"error":"validation_error", "message":"active required"}); return }
-    if err := h.users.SetActive(c.Request.Context(), id, *body.Active); err != nil { writeSvcError(c, err); return }
+    if err := h.users.SetActive(c.Request.Context(), claims.UserID, claims.Role, targetUserID, *body.Active); err != nil { writeSvcError(c, err); return }
     c.Status(http.StatusNoContent)
 }
 
@@ -166,9 +166,9 @@ func (h *UsersHandler) delete(c *gin.Context) {
     claims, ok := h.requireAuth(c)
     if !ok { return }
     if claims.Role != "admin" && claims.Role != "manager" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
-    id, err := strconv.Atoi(c.Param("id"))
+    targetUserID, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
-    if err := h.users.Delete(c.Request.Context(), id); err != nil { writeSvcError(c, err); return }
+    if err := h.users.Delete(c.Request.Context(), claims.UserID, claims.Role, targetUserID); err != nil { writeSvcError(c, err); return }
     c.Status(http.StatusNoContent)
 }
 

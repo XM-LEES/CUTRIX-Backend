@@ -21,5 +21,6 @@ type TasksRepository interface {
 
     // Queries
     GetByID(ctx context.Context, id int) (*models.ProductionTask, error)
+    List(ctx context.Context) ([]models.ProductionTask, error)
     ListByLayout(ctx context.Context, layoutID int) ([]models.ProductionTask, error)
 }

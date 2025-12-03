@@ -92,6 +92,22 @@ func (r *SqlTasksRepository) GetByID(ctx context.Context, id int) (*models.Produ
     return &t, nil
 }
 
+func (r *SqlTasksRepository) List(ctx context.Context) ([]models.ProductionTask, error) {
+    const q = `
+        SELECT task_id, layout_id, color, planned_layers, completed_layers, status
+        FROM production.tasks ORDER BY task_id DESC`
+    rows, err := r.db.QueryContext(ctx, q)
+    if err != nil { return nil, err }
+    defer rows.Close()
+    var res []models.ProductionTask
+    for rows.Next() {
+        var t models.ProductionTask
+        if err := rows.Scan(&t.TaskID, &t.LayoutID, &t.Color, &t.PlannedLayers, &t.CompletedLayers, &t.Status); err != nil { return nil, err }
+        res = append(res, t)
+    }
+    return res, rows.Err()
+}
+
 func (r *SqlTasksRepository) ListByLayout(ctx context.Context, layoutID int) ([]models.ProductionTask, error) {
     const q = `
         SELECT task_id, layout_id, color, planned_layers, completed_layers, status

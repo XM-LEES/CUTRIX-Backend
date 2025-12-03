@@ -61,10 +61,47 @@ func (s *usersService) List(ctx context.Context, filter UsersFilter) ([]UserDTO,
 }
 
 // Create creates a user with role and optional group/note.
-func (s *usersService) Create(ctx context.Context, name string, role string, group *string, note *string) (*UserDTO, error) {
+func (s *usersService) Create(ctx context.Context, currentUserID int, currentUserRole string, name string, role string, group *string, note *string) (*UserDTO, error) {
+    // Check if name already exists
     exists, err := s.repo.ExistsByName(ctx, name)
     if err != nil { return nil, err }
     if exists { return nil, ErrConflict }
+
+    // Business rule: Manager cannot create Admin
+    if currentUserRole == "manager" && role == "admin" {
+        return nil, ErrForbidden
+    }
+
+    // Business rule: Manager cannot create Manager
+    if currentUserRole == "manager" && role == "manager" {
+        return nil, ErrForbidden
+    }
+
+    // Business rule: System can only have one Admin
+    if role == "admin" {
+        adminRole := "admin"
+        existing, err := s.repo.List(ctx, &adminRole, nil, nil, nil)
+        if err != nil { return nil, err }
+        // Filter active admins only
+        for _, u := range existing {
+            if u.Role == "admin" && u.IsActive {
+                return nil, ErrForbidden
+            }
+        }
+    }
+
+    // Business rule: System can only have one Manager
+    if role == "manager" {
+        managerRole := "manager"
+        existing, err := s.repo.List(ctx, &managerRole, nil, nil, nil)
+        if err != nil { return nil, err }
+        // Filter active managers only
+        for _, u := range existing {
+            if u.Role == "manager" && u.IsActive {
+                return nil, ErrForbidden
+            }
+        }
+    }
 
     u := &models.User{
         Name:         name,
@@ -104,18 +141,89 @@ func (s *usersService) UpdateProfile(ctx context.Context, userID int, fields Upd
 }
 
 // AssignRole updates user's role; sensitive operation with policy checks.
-func (s *usersService) AssignRole(ctx context.Context, userID int, role string) error {
-    return s.repo.UpdateRole(ctx, userID, role)
+func (s *usersService) AssignRole(ctx context.Context, currentUserID int, currentUserRole string, targetUserID int, role string) error {
+    // Get target user to check their current role
+    targetUser, err := s.repo.GetByID(ctx, targetUserID)
+    if err != nil { return err }
+    if targetUser == nil { return ErrNotFound }
+
+    // Business rule: Manager cannot operate on Admin
+    if currentUserRole == "manager" && targetUser.Role == "admin" {
+        return ErrForbidden
+    }
+
+    // Business rule: Admin/Manager cannot modify their own role
+    if (currentUserRole == "admin" || currentUserRole == "manager") && currentUserID == targetUserID {
+        return ErrForbidden
+    }
+
+    // Business rule: System can only have one Admin
+    if role == "admin" && targetUser.Role != "admin" {
+        adminRole := "admin"
+        existing, err := s.repo.List(ctx, &adminRole, nil, nil, nil)
+        if err != nil { return err }
+        // Check if there's already an active admin
+        for _, u := range existing {
+            if u.Role == "admin" && u.IsActive && u.UserID != targetUserID {
+                return ErrForbidden
+            }
+        }
+    }
+
+    // Business rule: System can only have one Manager
+    if role == "manager" && targetUser.Role != "manager" {
+        managerRole := "manager"
+        existing, err := s.repo.List(ctx, &managerRole, nil, nil, nil)
+        if err != nil { return err }
+        // Check if there's already an active manager
+        for _, u := range existing {
+            if u.Role == "manager" && u.IsActive && u.UserID != targetUserID {
+                return ErrForbidden
+            }
+        }
+    }
+
+    return s.repo.UpdateRole(ctx, targetUserID, role)
 }
 
 // SetActive enables or disables a user; sensitive operation.
-func (s *usersService) SetActive(ctx context.Context, userID int, active bool) error {
-    return s.repo.SetActive(ctx, userID, active)
+func (s *usersService) SetActive(ctx context.Context, currentUserID int, currentUserRole string, targetUserID int, active bool) error {
+    // Get target user to check their role
+    targetUser, err := s.repo.GetByID(ctx, targetUserID)
+    if err != nil { return err }
+    if targetUser == nil { return ErrNotFound }
+
+    // Business rule: Manager cannot operate on Admin
+    if currentUserRole == "manager" && targetUser.Role == "admin" {
+        return ErrForbidden
+    }
+
+    // Business rule: Admin/Manager cannot deactivate themselves
+    if (currentUserRole == "admin" || currentUserRole == "manager") && currentUserID == targetUserID && !active {
+        return ErrForbidden
+    }
+
+    return s.repo.SetActive(ctx, targetUserID, active)
 }
 
 // Delete removes a user.
-func (s *usersService) Delete(ctx context.Context, userID int) error {
-    return s.repo.Delete(ctx, userID)
+func (s *usersService) Delete(ctx context.Context, currentUserID int, currentUserRole string, targetUserID int) error {
+    // Get target user to check their role
+    targetUser, err := s.repo.GetByID(ctx, targetUserID)
+    if err != nil { return err }
+    if targetUser == nil { return ErrNotFound }
+
+    // Business rule: Manager cannot delete Admin
+    if currentUserRole == "manager" && targetUser.Role == "admin" {
+        return ErrForbidden
+    }
+
+    // Business rule: Admin/Manager cannot delete themselves
+    if (currentUserRole == "admin" || currentUserRole == "manager") && currentUserID == targetUserID {
+        return ErrForbidden
+    }
+
+    return s.repo.Delete(ctx, targetUserID)
 }
 
 // toDTO converts models.User to UserDTO.

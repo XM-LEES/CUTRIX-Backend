@@ -133,6 +133,12 @@ import (
     return s.repo.GetByID(context.Background(), id)
 }
 
+// List 列出所有计划。
+// 返回：计划列表与错误。
+ func (s *plansService) List() ([]models.ProductionPlan, error) {
+    return s.repo.List(context.Background())
+}
+
 // ListByOrder 按订单列出计划集合。
 // orderID：订单 ID。
 // 返回：计划列表与错误；若订单不存在或无计划返回空列表或仓储层错误。

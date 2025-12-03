@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# 测试
+test/
+*.test
+*.out
+
+# 构建产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+main
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# 日志
+*.log
+
+# 环境变量
+.env
+.env.local
+
+# 文档
+*.md
+docs/
+
+# 脚本
+scripts/
+

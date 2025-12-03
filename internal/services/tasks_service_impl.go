@@ -85,6 +85,12 @@ import (
     return s.repo.GetByID(context.Background(), id)
 }
 
+// List 列出所有任务。
+// 返回：任务列表与错误。
+ func (s *tasksService) List() ([]models.ProductionTask, error) {
+    return s.repo.List(context.Background())
+}
+
 // ListByLayout 按布局列出任务集合。
 // layoutID：布局 ID。
 // 返回：任务列表与错误；若布局不存在或无任务返回空列表或仓储层错误。

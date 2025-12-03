@@ -100,6 +100,18 @@ CREATE TABLE IF NOT EXISTS production.logs (
 );
 
 -- =====================
+-- Indexes
+-- =====================
+-- Unique constraints to ensure only one active admin and one active manager
+CREATE UNIQUE INDEX IF NOT EXISTS users_single_active_admin_idx 
+ON public.users (role) 
+WHERE role = 'admin' AND is_active = true;
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_single_active_manager_idx 
+ON public.users (role) 
+WHERE role = 'manager' AND is_active = true;
+
+-- =====================
 -- Functions & Triggers (ordered by table)
 -- =====================
 -- Orders

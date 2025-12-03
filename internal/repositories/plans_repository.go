@@ -26,5 +26,6 @@ type PlansRepository interface {
 
     // Queries
     GetByID(ctx context.Context, id int) (*models.ProductionPlan, error)
+    List(ctx context.Context) ([]models.ProductionPlan, error)
     ListByOrder(ctx context.Context, orderID int) ([]models.ProductionPlan, error)
 }

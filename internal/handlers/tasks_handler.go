@@ -16,6 +16,7 @@ type TasksHandler struct{ svc services.TasksService }
 func NewTasksHandler(svc services.TasksService) *TasksHandler { return &TasksHandler{svc: svc} }
 
 func (h *TasksHandler) Register(r *gin.RouterGroup) {
+    r.GET("/tasks", h.list)
     r.POST("/tasks", h.create)
     r.GET("/tasks/:id", h.get)
     r.DELETE("/tasks/:id", h.delete)
@@ -24,10 +25,18 @@ func (h *TasksHandler) Register(r *gin.RouterGroup) {
 
 // RegisterProtected registers routes with permissions applied. Use on authenticated groups.
 func (h *TasksHandler) RegisterProtected(r *gin.RouterGroup) {
+    r.GET("/tasks", middleware.RequirePermissions("task:read"), h.list)
     r.POST("/tasks", middleware.RequirePermissions("task:create"), h.create)
     r.GET("/tasks/:id", middleware.RequirePermissions("task:read"), h.get)
     r.DELETE("/tasks/:id", middleware.RequirePermissions("task:delete"), h.delete)
     r.GET("/layouts/:id/tasks", middleware.RequirePermissions("task:read"), h.listByLayout)
+}
+
+func (h *TasksHandler) list(c *gin.Context) {
+    if h.svc == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
+    out, err := h.svc.List()
+    if err != nil { writeSvcError(c, err); return }
+    c.JSON(http.StatusOK, out)
 }
 
 func (h *TasksHandler) create(c *gin.Context) {

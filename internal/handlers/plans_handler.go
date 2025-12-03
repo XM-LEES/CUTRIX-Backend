@@ -16,6 +16,7 @@ type PlansHandler struct{ svc services.PlansService }
 func NewPlansHandler(svc services.PlansService) *PlansHandler { return &PlansHandler{svc: svc} }
 
 func (h *PlansHandler) Register(r *gin.RouterGroup) {
+    r.GET("/plans", h.list)
     r.POST("/plans", h.create)
     r.DELETE("/plans/:id", h.delete)
     r.GET("/plans/:id", h.get)
@@ -27,6 +28,7 @@ func (h *PlansHandler) Register(r *gin.RouterGroup) {
 
 // RegisterProtected registers routes with permissions applied. Use on authenticated groups.
 func (h *PlansHandler) RegisterProtected(r *gin.RouterGroup) {
+    r.GET("/plans", middleware.RequirePermissions("plan:read"), h.list)
     r.POST("/plans", middleware.RequirePermissions("plan:create"), h.create)
     r.DELETE("/plans/:id", middleware.RequirePermissions("plan:delete"), h.delete)
     r.GET("/plans/:id", middleware.RequirePermissions("plan:read"), h.get)
@@ -34,6 +36,13 @@ func (h *PlansHandler) RegisterProtected(r *gin.RouterGroup) {
     r.PATCH("/plans/:id/note", middleware.RequirePermissions("plan:update"), h.updateNote)
     r.POST("/plans/:id/publish", middleware.RequirePermissions("plan:publish"), h.publish)
     r.POST("/plans/:id/freeze", middleware.RequirePermissions("plan:freeze"), h.freeze)
+}
+
+func (h *PlansHandler) list(c *gin.Context) {
+    if h.svc == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
+    out, err := h.svc.List()
+    if err != nil { writeSvcError(c, err); return }
+    c.JSON(http.StatusOK, out)
 }
 
 func (h *PlansHandler) create(c *gin.Context) {

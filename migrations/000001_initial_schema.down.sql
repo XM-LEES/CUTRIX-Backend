@@ -77,6 +77,12 @@ DROP FUNCTION IF EXISTS production.guard_logs_update();
 DROP FUNCTION IF EXISTS production.prevent_logs_delete();
 
 -- =====================
+-- Drop Indexes
+-- =====================
+DROP INDEX IF EXISTS public.users_single_active_manager_idx;
+DROP INDEX IF EXISTS public.users_single_active_admin_idx;
+
+-- =====================
 -- Drop Tables
 -- =====================
 DROP TABLE IF EXISTS production.logs;
