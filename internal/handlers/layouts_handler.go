@@ -8,6 +8,7 @@ import (
 
     "cutrix-backend/internal/models"
     "cutrix-backend/internal/services"
+    "cutrix-backend/internal/middleware"
 )
 
 type LayoutsHandler struct{ svc services.LayoutsService }
@@ -21,6 +22,16 @@ func (h *LayoutsHandler) Register(r *gin.RouterGroup) {
     r.GET("/plans/:id/layouts", h.listByPlan)
     r.PATCH("/layouts/:id/name", h.updateName)
     r.PATCH("/layouts/:id/note", h.updateNote)
+}
+
+// RegisterProtected registers routes with permissions applied. Use on authenticated groups.
+func (h *LayoutsHandler) RegisterProtected(r *gin.RouterGroup) {
+    r.POST("/layouts", middleware.RequirePermissions("layout:create"), h.create)
+    r.DELETE("/layouts/:id", middleware.RequirePermissions("layout:delete"), h.delete)
+    r.GET("/layouts/:id", middleware.RequirePermissions("layout:read"), h.get)
+    r.GET("/plans/:id/layouts", middleware.RequirePermissions("layout:read"), h.listByPlan)
+    r.PATCH("/layouts/:id/name", middleware.RequirePermissions("layout:update"), h.updateName)
+    r.PATCH("/layouts/:id/note", middleware.RequirePermissions("layout:update"), h.updateNote)
 }
 
 func (h *LayoutsHandler) create(c *gin.Context) {

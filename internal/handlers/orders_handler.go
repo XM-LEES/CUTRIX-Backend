@@ -9,6 +9,7 @@ import (
 
     "cutrix-backend/internal/models"
     "cutrix-backend/internal/services"
+    "cutrix-backend/internal/middleware"
 )
 
 // OrdersHandler exposes production order endpoints: create with items, query, update, delete.
@@ -29,6 +30,22 @@ func (h *OrdersHandler) Register(r *gin.RouterGroup) {
     r.PATCH("/orders/:id/finish-date", h.updateFinishDate)
     // Delete
     r.DELETE("/orders/:id", h.delete)
+}
+
+// RegisterProtected registers routes with RBAC applied. Use on authenticated groups.
+func (h *OrdersHandler) RegisterProtected(r *gin.RouterGroup) {
+    // Create restricted to admin/manager
+    r.POST("/orders", middleware.RequireRoles("admin", "manager"), h.create)
+    // Read endpoints available to any authenticated role
+    r.GET("/orders", h.list)
+    r.GET("/orders/:id", h.get)
+    r.GET("/orders/by-number/:number", h.getByNumber)
+    r.GET("/orders/:id/full", h.getFull)
+    // Updates restricted to admin/manager
+    r.PATCH("/orders/:id/note", middleware.RequireRoles("admin", "manager"), h.updateNote)
+    r.PATCH("/orders/:id/finish-date", middleware.RequireRoles("admin", "manager"), h.updateFinishDate)
+    // Delete restricted to admin/manager
+    r.DELETE("/orders/:id", middleware.RequireRoles("admin", "manager"), h.delete)
 }
 
 // create creates an order with items atomically.

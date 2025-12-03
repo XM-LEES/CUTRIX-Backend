@@ -8,6 +8,7 @@ import (
 
     "cutrix-backend/internal/models"
     "cutrix-backend/internal/services"
+    "cutrix-backend/internal/middleware"
 )
 
 type TasksHandler struct{ svc services.TasksService }
@@ -19,6 +20,14 @@ func (h *TasksHandler) Register(r *gin.RouterGroup) {
     r.GET("/tasks/:id", h.get)
     r.DELETE("/tasks/:id", h.delete)
     r.GET("/layouts/:id/tasks", h.listByLayout)
+}
+
+// RegisterProtected registers routes with permissions applied. Use on authenticated groups.
+func (h *TasksHandler) RegisterProtected(r *gin.RouterGroup) {
+    r.POST("/tasks", middleware.RequirePermissions("task:create"), h.create)
+    r.GET("/tasks/:id", middleware.RequirePermissions("task:read"), h.get)
+    r.DELETE("/tasks/:id", middleware.RequirePermissions("task:delete"), h.delete)
+    r.GET("/layouts/:id/tasks", middleware.RequirePermissions("task:read"), h.listByLayout)
 }
 
 func (h *TasksHandler) create(c *gin.Context) {

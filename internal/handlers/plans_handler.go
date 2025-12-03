@@ -8,6 +8,7 @@ import (
 
     "cutrix-backend/internal/models"
     "cutrix-backend/internal/services"
+    "cutrix-backend/internal/middleware"
 )
 
 type PlansHandler struct{ svc services.PlansService }
@@ -22,6 +23,17 @@ func (h *PlansHandler) Register(r *gin.RouterGroup) {
     r.PATCH("/plans/:id/note", h.updateNote)
     r.POST("/plans/:id/publish", h.publish)
     r.POST("/plans/:id/freeze", h.freeze)
+}
+
+// RegisterProtected registers routes with permissions applied. Use on authenticated groups.
+func (h *PlansHandler) RegisterProtected(r *gin.RouterGroup) {
+    r.POST("/plans", middleware.RequirePermissions("plan:create"), h.create)
+    r.DELETE("/plans/:id", middleware.RequirePermissions("plan:delete"), h.delete)
+    r.GET("/plans/:id", middleware.RequirePermissions("plan:read"), h.get)
+    r.GET("/orders/:id/plans", middleware.RequirePermissions("plan:read"), h.listByOrder)
+    r.PATCH("/plans/:id/note", middleware.RequirePermissions("plan:update"), h.updateNote)
+    r.POST("/plans/:id/publish", middleware.RequirePermissions("plan:publish"), h.publish)
+    r.POST("/plans/:id/freeze", middleware.RequirePermissions("plan:freeze"), h.freeze)
 }
 
 func (h *PlansHandler) create(c *gin.Context) {

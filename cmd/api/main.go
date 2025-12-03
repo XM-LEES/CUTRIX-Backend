@@ -79,12 +79,26 @@ func main() {
     r.Use(middleware.RequestLogger())
 
     api := r.Group("/api/v1")
+    // Register auth and users routes (internally attaches necessary guards)
     handlers.RegisterRoutes(api, authSvc, usersSvc)
-    handlers.NewOrdersHandler(ordersSvc).Register(api)
-    handlers.NewPlansHandler(plansSvc).Register(api)
-    handlers.NewLayoutsHandler(layoutsSvc).Register(api)
-    handlers.NewTasksHandler(tasksSvc).Register(api)
-    handlers.NewLogsHandler(logsSvc).Register(api)
+
+    // Mount domain routes under authenticated group when auth is configured
+    if authSvc != nil {
+        protected := api.Group("")
+        protected.Use(middleware.RequireAuth(authSvc))
+        handlers.NewOrdersHandler(ordersSvc).RegisterProtected(protected)
+        handlers.NewPlansHandler(plansSvc).RegisterProtected(protected)
+        handlers.NewLayoutsHandler(layoutsSvc).RegisterProtected(protected)
+        handlers.NewTasksHandler(tasksSvc).RegisterProtected(protected)
+        handlers.NewLogsHandler(logsSvc).RegisterProtected(protected)
+    } else {
+        // Fallback for environments without auth (e.g., local dev without DB)
+        handlers.NewOrdersHandler(ordersSvc).Register(api)
+        handlers.NewPlansHandler(plansSvc).Register(api)
+        handlers.NewLayoutsHandler(layoutsSvc).Register(api)
+        handlers.NewTasksHandler(tasksSvc).Register(api)
+        handlers.NewLogsHandler(logsSvc).Register(api)
+    }
 
     r.NoRoute(func(c *gin.Context) { c.JSON(404, gin.H{"error": "route_not_found"}) })
 

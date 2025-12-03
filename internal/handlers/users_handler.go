@@ -78,7 +78,7 @@ func (h *UsersHandler) create(c *gin.Context) {
     if h.users == nil || h.auth == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
     claims, ok := h.requireAuth(c)
     if !ok { return }
-    if claims.Role != "admin" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
+    if claims.Role != "admin" && claims.Role != "manager" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
 
     var body struct{
         Name string  `json:"name"`
@@ -102,7 +102,7 @@ func (h *UsersHandler) updateProfile(c *gin.Context) {
     if !ok { return }
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
-    if claims.Role != "admin" && claims.UserID != id { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
+    if claims.Role != "admin" && claims.Role != "manager" && claims.UserID != id { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
 
     var body struct{
         Name      *string `json:"name"`
@@ -120,7 +120,7 @@ func (h *UsersHandler) assignRole(c *gin.Context) {
     if h.users == nil || h.auth == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
     claims, ok := h.requireAuth(c)
     if !ok { return }
-    if claims.Role != "admin" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
+    if claims.Role != "admin" && claims.Role != "manager" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     var body struct{ Role string `json:"role"` }
@@ -135,7 +135,7 @@ func (h *UsersHandler) setActive(c *gin.Context) {
     if h.users == nil || h.auth == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
     claims, ok := h.requireAuth(c)
     if !ok { return }
-    if claims.Role != "admin" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
+    if claims.Role != "admin" && claims.Role != "manager" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     var body struct{ Active *bool `json:"active"` }
@@ -150,7 +150,7 @@ func (h *UsersHandler) setPassword(c *gin.Context) {
     if h.auth == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
     claims, ok := h.requireAuth(c)
     if !ok { return }
-    if claims.Role != "admin" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
+    if claims.Role != "admin" && claims.Role != "manager" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     var body struct{ NewPassword string `json:"new_password"` }
@@ -165,7 +165,7 @@ func (h *UsersHandler) delete(c *gin.Context) {
     if h.users == nil || h.auth == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
     claims, ok := h.requireAuth(c)
     if !ok { return }
-    if claims.Role != "admin" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
+    if claims.Role != "admin" && claims.Role != "manager" { c.JSON(http.StatusForbidden, gin.H{"error":"forbidden"}); return }
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     if err := h.users.Delete(c.Request.Context(), id); err != nil { writeSvcError(c, err); return }

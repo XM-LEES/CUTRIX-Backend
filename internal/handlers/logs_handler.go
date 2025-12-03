@@ -8,6 +8,7 @@ import (
 
     "cutrix-backend/internal/models"
     "cutrix-backend/internal/services"
+    "cutrix-backend/internal/middleware"
 )
 
 type LogsHandler struct{ svc services.LogsService }
@@ -21,6 +22,19 @@ func (h *LogsHandler) Register(r *gin.RouterGroup) {
     r.GET("/tasks/:id/logs", h.listTaskLogs)
     r.GET("/layouts/:id/logs", h.listLayoutLogs)
     r.GET("/plans/:id/logs", h.listPlanLogs)
+}
+
+// RegisterProtected registers routes with fine-grained permissions. Use on authenticated groups.
+func (h *LogsHandler) RegisterProtected(r *gin.RouterGroup) {
+    // Workers can create/update logs; admins/managers bypass permission via super roles.
+    r.POST("/logs", middleware.RequirePermissions("log:create"), h.create)
+    r.PATCH("/logs/:id", middleware.RequirePermissions("log:update"), h.void)
+
+    // Listing endpoints restricted to admin/manager via role check.
+    r.GET("/tasks/:id/participants", middleware.RequireRoles("admin", "manager"), h.listParticipants)
+    r.GET("/tasks/:id/logs", middleware.RequireRoles("admin", "manager"), h.listTaskLogs)
+    r.GET("/layouts/:id/logs", middleware.RequireRoles("admin", "manager"), h.listLayoutLogs)
+    r.GET("/plans/:id/logs", middleware.RequireRoles("admin", "manager"), h.listPlanLogs)
 }
 
 func (h *LogsHandler) create(c *gin.Context) {

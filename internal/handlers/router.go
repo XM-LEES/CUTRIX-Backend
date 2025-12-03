@@ -32,9 +32,9 @@ func RegisterRoutes(api *gin.RouterGroup, authSvc services.AuthService, usersSvc
     // Authenticated user (self or admin)
     protected.PATCH("/users/:id/profile", usersH.updateProfile)
 
-    // Admin routes
+    // Admin/Manager routes
     admin := protected.Group("")
-    admin.Use(middleware.RequireRoles("admin"))
+    admin.Use(middleware.RequireRoles("admin", "manager"))
     admin.POST("/users", usersH.create)
     admin.PUT("/users/:id/role", usersH.assignRole)
     admin.PUT("/users/:id/active", usersH.setActive)
