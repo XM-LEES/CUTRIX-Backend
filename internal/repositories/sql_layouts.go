@@ -115,3 +115,51 @@ func (r *SqlLayoutsRepository) ListByPlan(ctx context.Context, planID int) ([]mo
     }
     return res, rows.Err()
 }
+
+// SetRatios sets size ratios for a layout. Replaces all existing ratios.
+func (r *SqlLayoutsRepository) SetRatios(ctx context.Context, layoutID int, ratios map[string]int) error {
+    // Pre-check: only allow setting ratios when plan is pending
+    status, err := r.planStatusByLayout(ctx, layoutID)
+    if err != nil { return err }
+    if status != "pending" {
+        return fmt.Errorf("计划发布后不允许设置尺码比例 (layout_id=%d, status=%s)", layoutID, status)
+    }
+
+    // Start transaction
+    tx, err := r.db.BeginTx(ctx, nil)
+    if err != nil { return err }
+    defer tx.Rollback()
+
+    // Delete existing ratios
+    _, err = tx.ExecContext(ctx, `DELETE FROM production.layout_size_ratios WHERE layout_id = $1`, layoutID)
+    if err != nil { return err }
+
+    // Insert new ratios
+    for size, ratio := range ratios {
+        if ratio > 0 { // Only insert non-zero ratios
+            _, err = tx.ExecContext(ctx,
+                `INSERT INTO production.layout_size_ratios (layout_id, size, ratio) VALUES ($1, $2, $3)`,
+                layoutID, size, ratio)
+            if err != nil { return err }
+        }
+    }
+
+    return tx.Commit()
+}
+
+// GetRatios retrieves all size ratios for a layout.
+func (r *SqlLayoutsRepository) GetRatios(ctx context.Context, layoutID int) ([]models.LayoutSizeRatio, error) {
+    const q = `SELECT ratio_id, layout_id, size, ratio FROM production.layout_size_ratios WHERE layout_id = $1 ORDER BY size`
+    rows, err := r.db.QueryContext(ctx, q, layoutID)
+    if err != nil { return nil, err }
+    defer rows.Close()
+    var res []models.LayoutSizeRatio
+    for rows.Next() {
+        var ratio models.LayoutSizeRatio
+        if err := rows.Scan(&ratio.RatioID, &ratio.LayoutID, &ratio.Size, &ratio.Ratio); err != nil {
+            return nil, err
+        }
+        res = append(res, ratio)
+    }
+    return res, rows.Err()
+}

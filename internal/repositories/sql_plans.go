@@ -29,10 +29,25 @@ func (r *SqlPlansRepository) Create(ctx context.Context, plan *models.Production
 }
 
 func (r *SqlPlansRepository) Delete(ctx context.Context, id int) error {
-    res, err := r.db.ExecContext(ctx, `DELETE FROM production.plans WHERE plan_id = $1`, id)
-    if err != nil { return err }
-    if n, _ := res.RowsAffected(); n == 0 { return sql.ErrNoRows }
-    return nil
+    tx, err := r.db.BeginTx(ctx, nil)
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback()
+
+    if _, err := tx.ExecContext(ctx, `SET LOCAL cutrix.plan_delete_flag = true`); err != nil {
+        return err
+    }
+
+    res, err := tx.ExecContext(ctx, `DELETE FROM production.plans WHERE plan_id = $1`, id)
+    if err != nil {
+        return err
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return sql.ErrNoRows
+    }
+
+    return tx.Commit()
 }
 
 func (r *SqlPlansRepository) UpdateNote(ctx context.Context, id int, note *string) error {

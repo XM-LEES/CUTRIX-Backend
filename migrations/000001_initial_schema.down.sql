@@ -53,6 +53,8 @@ DROP FUNCTION IF EXISTS production.update_plan_progress(INT);
 DROP FUNCTION IF EXISTS production.guard_plan_update();
 DROP FUNCTION IF EXISTS production.guard_plan_publish();
 DROP FUNCTION IF EXISTS production.publish_plan_mark_tasks();
+DROP FUNCTION IF EXISTS production.is_plan_adjustment_context();
+DROP FUNCTION IF EXISTS production.is_plan_delete_context();
 
 -- Cutting layouts
 DROP FUNCTION IF EXISTS production.guard_layouts_by_plan_status();

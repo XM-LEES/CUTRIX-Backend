@@ -90,9 +90,32 @@ import (
 // ListByPlan 按计划列出布局集合。
 // planID：计划 ID。
 // 返回：布局列表与错误；若计划不存在或无布局返回空列表或仓储层错误。
- func (s *layoutsService) ListByPlan(planID int) ([]models.CuttingLayout, error) {
+func (s *layoutsService) ListByPlan(planID int) ([]models.CuttingLayout, error) {
     if planID <= 0 {
         return nil, errors.New("invalid plan_id")
     }
     return s.repo.ListByPlan(context.Background(), planID)
+}
+
+// SetRatios 设置布局的尺码比例，仅在计划 pending 时允许。
+// id：布局 ID；ratios：尺码到比例的映射。
+// 返回：错误信息；状态不允由仓储层返回。
+func (s *layoutsService) SetRatios(id int, ratios map[string]int) error {
+    if id <= 0 {
+        return errors.New("invalid layout_id")
+    }
+    if ratios == nil {
+        return errors.New("ratios required")
+    }
+    return s.repo.SetRatios(context.Background(), id, ratios)
+}
+
+// GetRatios 获取布局的尺码比例。
+// id：布局 ID。
+// 返回：尺码比例列表与错误。
+func (s *layoutsService) GetRatios(id int) ([]models.LayoutSizeRatio, error) {
+    if id <= 0 {
+        return nil, errors.New("invalid layout_id")
+    }
+    return s.repo.GetRatios(context.Background(), id)
 }

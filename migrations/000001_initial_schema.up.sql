@@ -190,6 +190,10 @@ DECLARE
     v_total INT;
     v_completed INT;
 BEGIN
+    IF production.is_plan_adjustment_context() THEN
+        RETURN NEW;
+    END IF;
+
     -- Disallow manual changes of publish/finish date when status unchanged
     IF NEW.status = OLD.status THEN
         IF NEW.planned_publish_date IS DISTINCT FROM OLD.planned_publish_date THEN
@@ -311,6 +315,45 @@ FOR EACH ROW
 EXECUTE FUNCTION production.publish_plan_mark_tasks();
 
 
+--
+-- Helper guard for plan deletion context
+CREATE OR REPLACE FUNCTION production.is_plan_delete_context()
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_setting TEXT;
+BEGIN
+    v_setting := current_setting('cutrix.plan_delete_flag', true);
+    RETURN COALESCE(v_setting::BOOLEAN, FALSE);
+EXCEPTION WHEN others THEN
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+
+CREATE OR REPLACE FUNCTION production.is_plan_adjustment_context()
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_setting TEXT;
+BEGIN
+    v_setting := current_setting('cutrix.plan_adjustment_flag', true);
+    RETURN COALESCE(v_setting::BOOLEAN, FALSE);
+EXCEPTION WHEN others THEN
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION production.is_task_adjustment_context()
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_setting TEXT;
+BEGIN
+    v_setting := current_setting('cutrix.task_adjustment_flag', true);
+    RETURN COALESCE(v_setting::BOOLEAN, FALSE);
+EXCEPTION WHEN others THEN
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 
 -- Cutting layouts
 
@@ -321,6 +364,10 @@ DECLARE
     v_status VARCHAR(20);
     v_plan_id INT;
 BEGIN
+    IF production.is_plan_delete_context() THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
     v_plan_id := COALESCE(NEW.plan_id, OLD.plan_id);
     SELECT status INTO v_status FROM production.plans WHERE plan_id = v_plan_id;
 
@@ -378,6 +425,10 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_sum INT;
 BEGIN
+    IF production.is_plan_delete_context() THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
     IF TG_OP = 'UPDATE' THEN
         SELECT COALESCE(SUM(ratio),0) INTO v_sum FROM production.layout_size_ratios WHERE layout_id = OLD.layout_id;
         IF v_sum <= 0 THEN
@@ -410,6 +461,10 @@ DECLARE
     v_layout_id INT;
     v_plan_id INT;
 BEGIN
+    IF production.is_plan_delete_context() THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
     v_layout_id := COALESCE(NEW.layout_id, OLD.layout_id);
     SELECT l.plan_id, p.status INTO v_plan_id, v_status
     FROM production.cutting_layouts l
@@ -491,6 +546,10 @@ DECLARE
     v_layout_id INT;
     v_plan_id INT;
 BEGIN
+    IF production.is_plan_delete_context() OR production.is_task_adjustment_context() THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
     v_layout_id := COALESCE(NEW.layout_id, OLD.layout_id);
     SELECT l.plan_id, p.status INTO v_plan_id, v_status
     FROM production.cutting_layouts l
@@ -575,7 +634,7 @@ BEGIN
         status = CASE
             WHEN planned_layers IS NOT NULL AND completed_layers + NEW.layers_completed >= planned_layers THEN 'completed'
             WHEN completed_layers + NEW.layers_completed > 0 THEN 'in_progress'
-            ELSE 'pending'
+            ELSE status
         END
     WHERE task_id = NEW.task_id;
 
@@ -615,6 +674,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     planned INT;
     completed INT;
+    task_status VARCHAR(20);
     new_completed INT;
 BEGIN
     SELECT planned_layers, completed_layers INTO planned, completed
@@ -623,17 +683,21 @@ BEGIN
 
     -- Apply delta only when voiding; unvoid is not supported
     IF NEW.voided = TRUE AND (OLD.voided IS DISTINCT FROM TRUE) THEN
+        SELECT status INTO task_status FROM production.tasks WHERE task_id = NEW.task_id;
         new_completed := completed - OLD.layers_completed;
         IF new_completed < 0 THEN
             RAISE EXCEPTION '作废后完成层数不能小于0 (当前: %, 作废层数: %, 任务: %)', completed, OLD.layers_completed, NEW.task_id;
         END IF;
+        PERFORM set_config('cutrix.task_adjustment_flag','true', true);
+        PERFORM set_config('cutrix.plan_adjustment_flag','true', true);
         UPDATE production.tasks
         SET
             completed_layers = new_completed,
             status = CASE
                 WHEN planned IS NOT NULL AND new_completed >= planned THEN 'completed'
                 WHEN new_completed > 0 THEN 'in_progress'
-                ELSE 'pending'
+                WHEN task_status = 'completed' THEN 'in_progress'
+                ELSE task_status
             END
         WHERE task_id = NEW.task_id;
     END IF;
@@ -687,6 +751,9 @@ EXECUTE FUNCTION production.guard_logs_update();
 CREATE OR REPLACE FUNCTION production.prevent_logs_delete()
 RETURNS TRIGGER AS $$
 BEGIN
+    IF production.is_plan_delete_context() THEN
+        RETURN NEW;
+    END IF;
     RAISE EXCEPTION '日志不可删除，请使用作废/反作废';
 END;
 $$ LANGUAGE plpgsql;

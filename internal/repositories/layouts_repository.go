@@ -22,4 +22,8 @@ type LayoutsRepository interface {
     // Queries
     GetByID(ctx context.Context, id int) (*models.CuttingLayout, error)
     ListByPlan(ctx context.Context, planID int) ([]models.CuttingLayout, error)
+
+    // Size Ratios
+    SetRatios(ctx context.Context, layoutID int, ratios map[string]int) error
+    GetRatios(ctx context.Context, layoutID int) ([]models.LayoutSizeRatio, error)
 }

@@ -24,4 +24,9 @@ import "cutrix-backend/internal/models"
     GetByID(id int) (*models.CuttingLayout, error)
     // 查询：按计划列出布局列表。
     ListByPlan(planID int) ([]models.CuttingLayout, error)
+
+    // 尺码比例：设置布局的尺码比例（仅 pending 允许）。
+    SetRatios(id int, ratios map[string]int) error
+    // 尺码比例：获取布局的尺码比例。
+    GetRatios(id int) ([]models.LayoutSizeRatio, error)
 }
