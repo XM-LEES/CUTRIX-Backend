@@ -100,6 +100,22 @@ func (r *SqlLayoutsRepository) GetByID(ctx context.Context, id int) (*models.Cut
     return &l, nil
 }
 
+func (r *SqlLayoutsRepository) List(ctx context.Context) ([]models.CuttingLayout, error) {
+    const q = `SELECT layout_id, plan_id, layout_name, note FROM production.cutting_layouts ORDER BY layout_id ASC`
+    rows, err := r.db.QueryContext(ctx, q)
+    if err != nil { return nil, err }
+    defer rows.Close()
+    var res []models.CuttingLayout
+    for rows.Next() {
+        var l models.CuttingLayout
+        var note sql.NullString
+        if err := rows.Scan(&l.LayoutID, &l.PlanID, &l.LayoutName, &note); err != nil { return nil, err }
+        if note.Valid { v := note.String; l.Note = &v }
+        res = append(res, l)
+    }
+    return res, rows.Err()
+}
+
 func (r *SqlLayoutsRepository) ListByPlan(ctx context.Context, planID int) ([]models.CuttingLayout, error) {
     const q = `SELECT layout_id, plan_id, layout_name, note FROM production.cutting_layouts WHERE plan_id = $1 ORDER BY layout_id ASC`
     rows, err := r.db.QueryContext(ctx, q, planID)

@@ -105,6 +105,10 @@ This document summarizes the REST endpoints exposed by the server, mapped to Use
   - Response: `204 No Content`
   - Notes: Cascades deletion to related layouts/tasks/ratios.
 
+- GET `/api/v1/plans`
+  - Response: `[]ProductionPlan`
+  - Notes: Returns all plans ordered by `plan_id DESC`.
+
 - GET `/api/v1/plans/:id`
   - Response: `ProductionPlan`
 
@@ -133,6 +137,10 @@ This document summarizes the REST endpoints exposed by the server, mapped to Use
 - DELETE `/api/v1/layouts/:id`
   - Response: `204 No Content`
 
+- GET `/api/v1/layouts`
+  - Response: `[]CuttingLayout`
+  - Notes: Returns all layouts. Useful for batch operations and performance optimization.
+
 - GET `/api/v1/layouts/:id`
   - Response: `CuttingLayout`
 
@@ -157,6 +165,10 @@ This document summarizes the REST endpoints exposed by the server, mapped to Use
 
 - DELETE `/api/v1/tasks/:id`
   - Response: `204 No Content`
+
+- GET `/api/v1/tasks`
+  - Response: `[]ProductionTask`
+  - Notes: Returns all tasks. Useful for batch operations and performance optimization.
 
 - GET `/api/v1/tasks/:id`
   - Response: `ProductionTask`

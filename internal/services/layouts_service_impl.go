@@ -87,6 +87,12 @@ import (
     return s.repo.GetByID(context.Background(), id)
 }
 
+// List 列出所有布局。
+// 返回：布局列表与错误。
+func (s *layoutsService) List() ([]models.CuttingLayout, error) {
+    return s.repo.List(context.Background())
+}
+
 // ListByPlan 按计划列出布局集合。
 // planID：计划 ID。
 // 返回：布局列表与错误；若计划不存在或无布局返回空列表或仓储层错误。

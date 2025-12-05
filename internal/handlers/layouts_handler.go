@@ -18,6 +18,7 @@ func NewLayoutsHandler(svc services.LayoutsService) *LayoutsHandler { return &La
 func (h *LayoutsHandler) Register(r *gin.RouterGroup) {
     r.POST("/layouts", h.create)
     r.DELETE("/layouts/:id", h.delete)
+    r.GET("/layouts", h.list)
     r.GET("/layouts/:id", h.get)
     r.GET("/plans/:id/layouts", h.listByPlan)
     r.PATCH("/layouts/:id/name", h.updateName)
@@ -30,6 +31,7 @@ func (h *LayoutsHandler) Register(r *gin.RouterGroup) {
 func (h *LayoutsHandler) RegisterProtected(r *gin.RouterGroup) {
     r.POST("/layouts", middleware.RequirePermissions("layout:create"), h.create)
     r.DELETE("/layouts/:id", middleware.RequirePermissions("layout:delete"), h.delete)
+    r.GET("/layouts", middleware.RequirePermissions("layout:read"), h.list)
     r.GET("/layouts/:id", middleware.RequirePermissions("layout:read"), h.get)
     r.GET("/plans/:id/layouts", middleware.RequirePermissions("layout:read"), h.listByPlan)
     r.PATCH("/layouts/:id/name", middleware.RequirePermissions("layout:update"), h.updateName)
@@ -59,6 +61,13 @@ func (h *LayoutsHandler) get(c *gin.Context) {
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     out, err := h.svc.GetByID(id)
+    if err != nil { writeSvcError(c, err); return }
+    c.JSON(http.StatusOK, out)
+}
+
+func (h *LayoutsHandler) list(c *gin.Context) {
+    if h.svc == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
+    out, err := h.svc.List()
     if err != nil { writeSvcError(c, err); return }
     c.JSON(http.StatusOK, out)
 }

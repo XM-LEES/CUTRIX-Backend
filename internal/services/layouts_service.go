@@ -22,6 +22,8 @@ import "cutrix-backend/internal/models"
 
     // 查询：按 ID 获取布局详情。
     GetByID(id int) (*models.CuttingLayout, error)
+    // 查询：列出所有布局。
+    List() ([]models.CuttingLayout, error)
     // 查询：按计划列出布局列表。
     ListByPlan(planID int) ([]models.CuttingLayout, error)
 
