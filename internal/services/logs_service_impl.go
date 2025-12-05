@@ -65,3 +65,9 @@ func (s *LogsServiceImpl) ListByPlan(planID int) ([]models.ProductionLog, error)
     if planID <= 0 { return nil, ErrValidation }
     return s.repo.ListByPlan(planID)
 }
+
+func (s *LogsServiceImpl) ListByWorker(workerID *int, workerName *string) ([]models.ProductionLog, error) {
+    if workerID == nil && workerName == nil { return nil, ErrValidation }
+    if workerID != nil && *workerID <= 0 { return nil, ErrValidation }
+    return s.repo.ListByWorker(workerID, workerName)
+}

@@ -161,3 +161,58 @@ func (r *SqlLogsRepository) ListByPlan(planID int) ([]models.ProductionLog, erro
     }
     return res, rows.Err()
 }
+
+func (r *SqlLogsRepository) ListByWorker(workerID *int, workerName *string) ([]models.ProductionLog, error) {
+    var q string
+    var args []interface{}
+    
+    if workerID != nil && workerName != nil {
+        // 同时匹配 worker_id 和 worker_name
+        q = `
+            SELECT 
+                l.log_id, l.task_id, l.worker_id, l.worker_name, l.layers_completed, l.log_time, l.note,
+                l.voided, l.void_reason, l.voided_at, l.voided_by, l.voided_by_name
+            FROM production.logs l
+            WHERE (l.worker_id = $1 OR l.worker_name = $2)
+            ORDER BY l.log_time DESC, l.log_id DESC
+        `
+        args = []interface{}{*workerID, *workerName}
+    } else if workerID != nil {
+        // 只匹配 worker_id
+        q = `
+            SELECT 
+                l.log_id, l.task_id, l.worker_id, l.worker_name, l.layers_completed, l.log_time, l.note,
+                l.voided, l.void_reason, l.voided_at, l.voided_by, l.voided_by_name
+            FROM production.logs l
+            WHERE l.worker_id = $1
+            ORDER BY l.log_time DESC, l.log_id DESC
+        `
+        args = []interface{}{*workerID}
+    } else if workerName != nil {
+        // 只匹配 worker_name
+        q = `
+            SELECT 
+                l.log_id, l.task_id, l.worker_id, l.worker_name, l.layers_completed, l.log_time, l.note,
+                l.voided, l.void_reason, l.voided_at, l.voided_by, l.voided_by_name
+            FROM production.logs l
+            WHERE l.worker_name = $1
+            ORDER BY l.log_time DESC, l.log_id DESC
+        `
+        args = []interface{}{*workerName}
+    } else {
+        // 两个参数都为空，返回空结果
+        return []models.ProductionLog{}, nil
+    }
+    
+    ctx := context.Background()
+    rows, err := r.db.QueryContext(ctx, q, args...)
+    if err != nil { return nil, err }
+    defer rows.Close()
+    var res []models.ProductionLog
+    for rows.Next() {
+        pl, err := scanLog(rows)
+        if err != nil { return nil, err }
+        res = append(res, *pl)
+    }
+    return res, rows.Err()
+}

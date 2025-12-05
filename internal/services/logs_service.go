@@ -15,4 +15,8 @@ type LogsService interface {
     ListByLayout(layoutID int) ([]models.ProductionLog, error)
     // 查看某个计划的所有日志（包含作废）。
     ListByPlan(planID int) ([]models.ProductionLog, error)
+
+    // 查看某个工人的所有日志（包含作废）。
+    // workerID 和 workerName 至少提供一个。
+    ListByWorker(workerID *int, workerName *string) ([]models.ProductionLog, error)
 }

@@ -21,4 +21,8 @@ type LogsRepository interface {
 
     // ListByPlan 查看某个计划的所有日志（包含作废日志）。
     ListByPlan(planID int) ([]models.ProductionLog, error)
+
+    // ListByWorker 查看某个工人的所有日志（包含作废日志）。
+    // workerID 和 workerName 至少提供一个，如果都提供则同时匹配。
+    ListByWorker(workerID *int, workerName *string) ([]models.ProductionLog, error)
 }

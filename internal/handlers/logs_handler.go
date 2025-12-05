@@ -18,6 +18,7 @@ func NewLogsHandler(svc services.LogsService) *LogsHandler { return &LogsHandler
 func (h *LogsHandler) Register(r *gin.RouterGroup) {
     r.POST("/logs", h.create)
     r.PATCH("/logs/:id", h.void)
+    r.GET("/logs/my", h.listMyLogs)
     r.GET("/tasks/:id/participants", h.listParticipants)
     r.GET("/tasks/:id/logs", h.listTaskLogs)
     r.GET("/layouts/:id/logs", h.listLayoutLogs)
@@ -29,6 +30,9 @@ func (h *LogsHandler) RegisterProtected(r *gin.RouterGroup) {
     // Workers can create/update logs; admins/managers bypass permission via super roles.
     r.POST("/logs", middleware.RequirePermissions("log:create"), h.create)
     r.PATCH("/logs/:id", middleware.RequirePermissions("log:update"), h.void)
+
+    // Get my logs - any authenticated user can view their own logs
+    r.GET("/logs/my", h.listMyLogs)
 
     // Listing endpoints restricted to admin/manager via role check.
     r.GET("/tasks/:id/participants", middleware.RequireRoles("admin", "manager"), h.listParticipants)
@@ -91,5 +95,28 @@ func (h *LogsHandler) listPlanLogs(c *gin.Context) {
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     out, err := h.svc.ListByPlan(id)
     if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
+    c.JSON(http.StatusOK, out)
+}
+
+func (h *LogsHandler) listMyLogs(c *gin.Context) {
+    if h.svc == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
+    
+    // Get current user from context (set by RequireAuth middleware)
+    v, ok := c.Get("claims")
+    if !ok || v == nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error":"unauthorized"})
+        return
+    }
+    claims, ok := v.(*services.Claims)
+    if !ok || claims == nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error":"unauthorized"})
+        return
+    }
+    
+    // Get logs for current user (by worker_id and/or worker_name)
+    workerID := &claims.UserID
+    workerName := &claims.Name
+    out, err := h.svc.ListByWorker(workerID, workerName)
+    if err != nil { writeSvcError(c, err); return }
     c.JSON(http.StatusOK, out)
 }

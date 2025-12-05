@@ -176,18 +176,25 @@ This document summarizes the REST endpoints exposed by the server, mapped to Use
   - Response: `204 No Content`
   - Notes: Marks the log as voided; DB triggers set `voided_at` and `voided_by_name` and adjust task `completed_layers`. Unvoid is not allowed.
 
+- GET `/api/v1/logs/my`
+  - Response: `[]ProductionLog`
+  - Notes: Returns all logs for the current authenticated user (matched by worker_id and/or worker_name). Requires authentication. Ordered by log_time DESC.
+
 - GET `/api/v1/tasks/:id/participants`
   - Response: `[]string`
   - Notes: Distinct worker names from non-void logs; uses `COALESCE(logs.worker_name, users.name)`.
 
 - GET `/api/v1/tasks/:id/logs`
   - Response: `[]ProductionLog`
+  - Notes: Requires admin/manager role.
 
 - GET `/api/v1/layouts/:id/logs`
   - Response: `[]ProductionLog`
+  - Notes: Requires admin/manager role.
 
 - GET `/api/v1/plans/:id/logs`
   - Response: `[]ProductionLog`
+  - Notes: Requires admin/manager role.
 
 ## Error Conventions
 - `401 unauthorized`: invalid/expired token, login failed, wrong old password.
