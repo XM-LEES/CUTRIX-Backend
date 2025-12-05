@@ -130,6 +130,11 @@ func (r *SqlLayoutsRepository) SetRatios(ctx context.Context, layoutID int, rati
     if err != nil { return err }
     defer tx.Rollback()
 
+    // Set flag to allow temporary zero sum during replacement
+    if _, err := tx.ExecContext(ctx, `SET LOCAL cutrix.ratios_replace_flag = true`); err != nil {
+        return err
+    }
+
     // Delete existing ratios
     _, err = tx.ExecContext(ctx, `DELETE FROM production.layout_size_ratios WHERE layout_id = $1`, layoutID)
     if err != nil { return err }

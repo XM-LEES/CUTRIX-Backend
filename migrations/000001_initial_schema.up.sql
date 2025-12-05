@@ -342,6 +342,18 @@ EXCEPTION WHEN others THEN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
+CREATE OR REPLACE FUNCTION production.is_ratios_replace_context()
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_setting TEXT;
+BEGIN
+    v_setting := current_setting('cutrix.ratios_replace_flag', true);
+    RETURN COALESCE(v_setting::BOOLEAN, FALSE);
+EXCEPTION WHEN others THEN
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 CREATE OR REPLACE FUNCTION production.is_task_adjustment_context()
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -425,7 +437,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_sum INT;
 BEGIN
-    IF production.is_plan_delete_context() THEN
+    IF production.is_plan_delete_context() OR production.is_ratios_replace_context() THEN
         RETURN COALESCE(NEW, OLD);
     END IF;
 
