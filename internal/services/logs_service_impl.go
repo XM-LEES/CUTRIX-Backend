@@ -31,6 +31,11 @@ func (s *LogsServiceImpl) Create(log *models.ProductionLog) error {
     return err
 }
 
+func (s *LogsServiceImpl) GetByID(logID int) (*models.ProductionLog, error) {
+    if logID <= 0 { return nil, ErrValidation }
+    return s.repo.GetByID(logID)
+}
+
 func (s *LogsServiceImpl) ListParticipants(taskID int) ([]string, error) {
     if taskID <= 0 { return nil, ErrValidation }
     return s.repo.ListParticipants(taskID)
@@ -70,4 +75,20 @@ func (s *LogsServiceImpl) ListByWorker(workerID *int, workerName *string) ([]mod
     if workerID == nil && workerName == nil { return nil, ErrValidation }
     if workerID != nil && *workerID <= 0 { return nil, ErrValidation }
     return s.repo.ListByWorker(workerID, workerName)
+}
+
+func (s *LogsServiceImpl) CountVoidedByWorkerIn24Hours(workerID int) (int, error) {
+    if workerID <= 0 { return 0, ErrValidation }
+    return s.repo.CountVoidedByWorkerIn24Hours(workerID)
+}
+
+func (s *LogsServiceImpl) ListRecentVoided(limit int) ([]models.ProductionLog, error) {
+    if limit <= 0 { limit = 50 }
+    return s.repo.ListRecentVoided(limit)
+}
+
+func (s *LogsServiceImpl) ListAll(taskID *int, workerID *int, voided *bool, limit int, offset int) ([]models.ProductionLog, int, error) {
+    if limit <= 0 { limit = 50 }
+    if offset < 0 { offset = 0 }
+    return s.repo.ListAll(taskID, workerID, voided, limit, offset)
 }

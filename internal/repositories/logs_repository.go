@@ -6,6 +6,9 @@ type LogsRepository interface {
     // Create 记录新的生产日志；仅允许向 in_progress 任务提交，DB 触发器强制校验。
     Create(log *models.ProductionLog) error
 
+    // GetByID 获取单个日志详情。
+    GetByID(logID int) (*models.ProductionLog, error)
+
     // ListParticipants 列出参与该任务的人员快照（过滤作废日志）。
     ListParticipants(taskID int) ([]string, error)
 
@@ -25,4 +28,15 @@ type LogsRepository interface {
     // ListByWorker 查看某个工人的所有日志（包含作废日志）。
     // workerID 和 workerName 至少提供一个，如果都提供则同时匹配。
     ListByWorker(workerID *int, workerName *string) ([]models.ProductionLog, error)
+
+    // CountVoidedByWorkerIn24Hours 统计worker在最近24小时内作废的日志数量。
+    CountVoidedByWorkerIn24Hours(workerID int) (int, error)
+
+    // ListRecentVoided 获取最近作废的日志（用于通知manager）。
+    // limit 限制返回数量，默认50条。
+    ListRecentVoided(limit int) ([]models.ProductionLog, error)
+
+    // ListAll 获取所有日志（管理员用），支持筛选。
+    // taskID, workerID, voided 为可选筛选条件，nil表示不过滤。
+    ListAll(taskID *int, workerID *int, voided *bool, limit int, offset int) ([]models.ProductionLog, int, error)
 }

@@ -122,14 +122,44 @@
 - **请求格式：**
   ```json
   {
-    "voided": true,
-    "void_reason": "作废原因"
+    "void_reason": "作废原因"  // 必填
   }
   ```
+- **Worker 角色限制：**
+  - ✅ 只能作废**自己的日志**（通过 `worker_id` 或 `worker_name` 匹配）
+  - ✅ 只能作废**24小时内提交的日志**
+  - ✅ 24小时内最多只能作废**3条日志**
+  - ❌ 超过限制会返回 `403 forbidden` 错误
+- **Admin/Manager 角色：**
+  - ✅ 无上述限制，可以作废任何日志
 - **说明：** 
   - 只能作废，**不能取消作废**
   - 作废后，任务的 `completed_layers` 会自动减少
+  - 作废时间 `voided_at` 和作废人 `voided_by_name` 由数据库触发器自动填充
   - 日志的其他字段（`task_id`、`layers_completed`、`log_time` 等）**完全不可修改**
+
+#### ✅ GET `/api/v1/logs/recent-voided`
+- **权限要求：** `admin` 或 `manager` 角色
+- **功能：** 获取最近作废的日志（用于通知）
+- **查询参数：**
+  - `limit` (可选，默认: 50，最大: 100)
+- **响应格式：**
+  ```json
+  [
+    {
+      "log_id": 1,
+      "task_id": 1,
+      "worker_name": "张三",
+      "layers_completed": 10,
+      "log_time": "2024-01-01T10:00:00Z",
+      "voided": true,
+      "void_reason": "记录错误",
+      "voided_at": "2024-01-01T11:00:00Z",
+      "voided_by_name": "张三"
+    }
+  ]
+  ```
+- **说明：** 按 `voided_at DESC` 排序，返回最近作废的日志列表
 
 #### ❌ **不可修改的字段：**
 - `task_id` - 不可修改
@@ -233,7 +263,7 @@
 | **计划** | `note` | 发布后只能改备注 | plan:update |
 | **版型** | `name`（发布前）, `note`（始终） | 发布后名称不可改 | layout:update |
 | **任务** | ❌ 无直接接口 | 通过日志自动更新 | - |
-| **日志** | `voided`, `void_reason` | 只能作废，不能取消 | log:update |
+| **日志** | `voided`, `void_reason` | Worker: 只能作废自己的24小时内日志，24小时内最多3条 | log:update |
 | **用户** | `name`, `group`, `note`, `role`, `is_active`, `password` | 有业务规则限制 | 见上表 |
 
 ---

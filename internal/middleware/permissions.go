@@ -48,11 +48,14 @@ func RequirePermissions(perms ...string) gin.HandlerFunc {
 // RolePermissionsMap defines allowed permissions for each role.
 // Keys are lower-cased role names.
 var RolePermissionsMap = map[string][]string{
-    // worker: only submit/modify logs, view tasks
+    // worker: only submit/modify/void own logs, view tasks, view in-progress plans and layouts
     "worker": {
         "log:create",
         "log:update",
+        "log:void", // Allow workers to void their own logs
         "task:read",
+        "plan:read", // Allow workers to view plans (needed for WorkerDashboard)
+        "layout:read", // Allow workers to view layouts (needed to associate tasks with plans)
     },
     // pattern_maker (打板员): full permissions for plan/layout/layout_ratios/task modules
     "pattern_maker": {

@@ -172,29 +172,51 @@ This document summarizes the REST endpoints exposed by the server, mapped to Use
   - Notes: Requires task status `in_progress`; `layers_completed > 0`; if only `worker_id` is provided, `worker_name` is auto-filled by a DB trigger; the request field is named `note` (not `notes`).
 
 - PATCH `/api/v1/logs/:id`
+  - Header: `Authorization: Bearer <access_token>` (requires `log:update` permission)
   - Request: `{ "voided_by": int, "void_reason": "nullable" }`
-  - Response: `204 No Content`
-  - Notes: Marks the log as voided; DB triggers set `voided_at` and `voided_by_name` and adjust task `completed_layers`. Unvoid is not allowed.
+  - Response: `204 No Content` on success
+  - Error Responses:
+    - `403 forbidden` with `message: "只能作废自己的日志"` - Worker can only void their own logs
+    - `403 forbidden` with `message: "只能作废24小时内的日志"` - Log must be submitted within 24 hours
+    - `403 forbidden` with `message: "24小时内最多只能作废3条日志"` - Worker has reached the 24-hour limit (3 logs)
+  - Notes: 
+    - Marks the log as voided; DB triggers set `voided_at` and `voided_by_name` and adjust task `completed_layers`. Unvoid is not allowed.
+    - **Worker restrictions**: If the requester is a `worker` role, additional validations apply:
+      - Must be the owner of the log (matched by `worker_id` or `worker_name`)
+      - Log must have been submitted within the last 24 hours
+      - Worker must not have voided more than 3 logs in the past 24 hours
+    - Admin and manager roles bypass these restrictions.
 
 - GET `/api/v1/logs/my`
+  - Header: `Authorization: Bearer <access_token>`
   - Response: `[]ProductionLog`
   - Notes: Returns all logs for the current authenticated user (matched by worker_id and/or worker_name). Requires authentication. Ordered by log_time DESC.
 
+- GET `/api/v1/logs/recent-voided`
+  - Header: `Authorization: Bearer <access_token>` (requires admin/manager role)
+  - Query: `limit` (optional, default: 50, max: 100)
+  - Response: `[]ProductionLog`
+  - Notes: Returns recently voided logs ordered by `voided_at DESC`. Used for manager notifications. Only logs with `voided = true` are returned.
+
 - GET `/api/v1/tasks/:id/participants`
+  - Header: `Authorization: Bearer <access_token>` (requires admin/manager role)
   - Response: `[]string`
   - Notes: Distinct worker names from non-void logs; uses `COALESCE(logs.worker_name, users.name)`.
 
 - GET `/api/v1/tasks/:id/logs`
+  - Header: `Authorization: Bearer <access_token>` (requires admin/manager role)
   - Response: `[]ProductionLog`
-  - Notes: Requires admin/manager role.
+  - Notes: Returns all logs for the specified task (including voided logs).
 
 - GET `/api/v1/layouts/:id/logs`
+  - Header: `Authorization: Bearer <access_token>` (requires admin/manager role)
   - Response: `[]ProductionLog`
-  - Notes: Requires admin/manager role.
+  - Notes: Returns all logs for tasks under the specified layout (including voided logs).
 
 - GET `/api/v1/plans/:id/logs`
+  - Header: `Authorization: Bearer <access_token>` (requires admin/manager role)
   - Response: `[]ProductionLog`
-  - Notes: Requires admin/manager role.
+  - Notes: Returns all logs for tasks under the specified plan (including voided logs).
 
 ## Error Conventions
 - `401 unauthorized`: invalid/expired token, login failed, wrong old password.

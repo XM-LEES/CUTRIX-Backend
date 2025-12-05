@@ -3,6 +3,8 @@ package repositories
 import (
     "context"
     "database/sql"
+    "fmt"
+    "strings"
 
     "cutrix-backend/internal/models"
 )
@@ -57,6 +59,26 @@ func (r *SqlLogsRepository) Create(log *models.ProductionLog) error {
         log.LayersCompleted,
         log.Note,
     ).Scan(&log.LogID, &log.LogTime)
+}
+
+func (r *SqlLogsRepository) GetByID(logID int) (*models.ProductionLog, error) {
+    const q = `
+        SELECT 
+            l.log_id, l.task_id, l.worker_id, l.worker_name, l.layers_completed, l.log_time, l.note,
+            l.voided, l.void_reason, l.voided_at, l.voided_by, l.voided_by_name
+        FROM production.logs l
+        WHERE l.log_id = $1
+    `
+    ctx := context.Background()
+    row := r.db.QueryRowContext(ctx, q, logID)
+    log, err := scanLog(row)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, nil
+        }
+        return nil, err
+    }
+    return log, nil
 }
 
 func (r *SqlLogsRepository) ListParticipants(taskID int) ([]string, error) {
@@ -215,4 +237,120 @@ func (r *SqlLogsRepository) ListByWorker(workerID *int, workerName *string) ([]m
         res = append(res, *pl)
     }
     return res, rows.Err()
+}
+
+func (r *SqlLogsRepository) CountVoidedByWorkerIn24Hours(workerID int) (int, error) {
+    const q = `
+        SELECT COUNT(*)
+        FROM production.logs
+        WHERE voided = TRUE
+          AND voided_by = $1
+          AND voided_at >= NOW() - INTERVAL '24 hours'
+    `
+    ctx := context.Background()
+    var count int
+    err := r.db.QueryRowContext(ctx, q, workerID).Scan(&count)
+    return count, err
+}
+
+func (r *SqlLogsRepository) ListRecentVoided(limit int) ([]models.ProductionLog, error) {
+    if limit <= 0 {
+        limit = 50
+    }
+    const q = `
+        SELECT 
+            l.log_id, l.task_id, l.worker_id, l.worker_name, l.layers_completed, l.log_time, l.note,
+            l.voided, l.void_reason, l.voided_at, l.voided_by, l.voided_by_name
+        FROM production.logs l
+        WHERE l.voided = TRUE
+        ORDER BY l.voided_at DESC
+        LIMIT $1
+    `
+    ctx := context.Background()
+    rows, err := r.db.QueryContext(ctx, q, limit)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    var res []models.ProductionLog
+    for rows.Next() {
+        pl, err := scanLog(rows)
+        if err != nil {
+            return nil, err
+        }
+        res = append(res, *pl)
+    }
+    return res, rows.Err()
+}
+
+func (r *SqlLogsRepository) ListAll(taskID *int, workerID *int, voided *bool, limit int, offset int) ([]models.ProductionLog, int, error) {
+    if limit <= 0 {
+        limit = 50
+    }
+    if offset < 0 {
+        offset = 0
+    }
+    
+    // 构建WHERE条件
+    var conditions []string
+    var args []interface{}
+    argIndex := 1
+    
+    if taskID != nil {
+        conditions = append(conditions, fmt.Sprintf("l.task_id = $%d", argIndex))
+        args = append(args, *taskID)
+        argIndex++
+    }
+    if workerID != nil {
+        conditions = append(conditions, fmt.Sprintf("l.worker_id = $%d", argIndex))
+        args = append(args, *workerID)
+        argIndex++
+    }
+    if voided != nil {
+        conditions = append(conditions, fmt.Sprintf("l.voided = $%d", argIndex))
+        args = append(args, *voided)
+        argIndex++
+    }
+    
+    whereClause := ""
+    if len(conditions) > 0 {
+        whereClause = "WHERE " + strings.Join(conditions, " AND ")
+    }
+    
+    // 查询总数
+    countQuery := fmt.Sprintf("SELECT COUNT(*) FROM production.logs l %s", whereClause)
+    ctx := context.Background()
+    var total int
+    err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+    if err != nil {
+        return nil, 0, err
+    }
+    
+    // 查询数据
+    dataQuery := fmt.Sprintf(`
+        SELECT 
+            l.log_id, l.task_id, l.worker_id, l.worker_name, l.layers_completed, l.log_time, l.note,
+            l.voided, l.void_reason, l.voided_at, l.voided_by, l.voided_by_name
+        FROM production.logs l
+        %s
+        ORDER BY l.log_time DESC, l.log_id DESC
+        LIMIT $%d OFFSET $%d
+    `, whereClause, argIndex, argIndex+1)
+    
+    args = append(args, limit, offset)
+    rows, err := r.db.QueryContext(ctx, dataQuery, args...)
+    if err != nil {
+        return nil, 0, err
+    }
+    defer rows.Close()
+    
+    var res []models.ProductionLog
+    for rows.Next() {
+        pl, err := scanLog(rows)
+        if err != nil {
+            return nil, 0, err
+        }
+        res = append(res, *pl)
+    }
+    return res, total, rows.Err()
 }
