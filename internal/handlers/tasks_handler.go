@@ -29,7 +29,9 @@ func (h *TasksHandler) RegisterProtected(r *gin.RouterGroup) {
     r.POST("/tasks", middleware.RequirePermissions("task:create"), h.create)
     r.GET("/tasks/:id", middleware.RequirePermissions("task:read"), h.get)
     r.DELETE("/tasks/:id", middleware.RequirePermissions("task:delete"), h.delete)
-    r.GET("/layouts/:id/tasks", middleware.RequirePermissions("task:read"), h.listByLayout)
+    // listByLayout: 允许有 task:read 或 layout:read 权限的用户访问
+    // 这样 pattern_maker 可以通过 layout:read 权限查看版型下的任务
+    r.GET("/layouts/:id/tasks", middleware.RequirePermissions("task:read", "layout:read"), h.listByLayout)
 }
 
 func (h *TasksHandler) list(c *gin.Context) {

@@ -57,6 +57,21 @@ func (h *PlansHandler) delete(c *gin.Context) {
     if h.svc == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
+    
+    // Business rule: pattern_maker can only delete pending plans
+    role, _ := c.Get("role")
+    if roleStr, ok := role.(string); ok && roleStr == "pattern_maker" {
+        plan, err := h.svc.GetByID(id)
+        if err != nil {
+            writeSvcError(c, err)
+            return
+        }
+        if plan.Status != "pending" {
+            c.JSON(http.StatusForbidden, gin.H{"error":"pattern_maker can only delete pending plans"})
+            return
+        }
+    }
+    
     if err := h.svc.Delete(id); err != nil { writeSvcError(c, err); return }
     c.Status(http.StatusNoContent)
 }
@@ -83,6 +98,21 @@ func (h *PlansHandler) updateNote(c *gin.Context) {
     if h.svc == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
+    
+    // Business rule: pattern_maker cannot update notes for published plans
+    role, _ := c.Get("role")
+    if roleStr, ok := role.(string); ok && roleStr == "pattern_maker" {
+        plan, err := h.svc.GetByID(id)
+        if err != nil {
+            writeSvcError(c, err)
+            return
+        }
+        if plan.Status != "pending" {
+            c.JSON(http.StatusForbidden, gin.H{"error":"pattern_maker cannot update notes for published plans"})
+            return
+        }
+    }
+    
     var body struct{ Note *string `json:"note"` }
     if err := c.ShouldBindJSON(&body); err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_json"}); return }
     if err := h.svc.UpdateNote(id, body.Note); err != nil { writeSvcError(c, err); return }

@@ -57,12 +57,22 @@ var RolePermissionsMap = map[string][]string{
         "plan:read", // Allow workers to view plans (needed for WorkerDashboard)
         "layout:read", // Allow workers to view layouts (needed to associate tasks with plans)
     },
-    // pattern_maker (打板员): full permissions for plan/layout/layout_ratios/task modules
+    // pattern_maker (制版员): can create/read/update plans, but cannot publish or freeze
+    // Can manage layouts and tasks, but cannot view task management page (no task:read)
     "pattern_maker": {
-        "plan:*",
-        "layout:*",
-        "layout_ratios:*",
-        "task:*",
+        "plan:create",
+        "plan:read",
+        "plan:update",
+        "plan:delete",
+        "layout:create",
+        "layout:read",
+        "layout:update",
+        "layout:delete",
+        "layout_ratios:create",
+        "layout_ratios:read",
+        "task:create",
+        "task:delete",
+        "order:read",
     },
     // Other roles can be added here as needed
 }

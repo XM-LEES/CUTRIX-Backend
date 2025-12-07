@@ -49,7 +49,7 @@ Schema 文件：`migrations/000001_initial_schema.up.sql`（含触发器与约�
   - 其后路由根据需要使用 `RequireRoles(...)`（只允许特定角色）或 `RequirePermissions(...)`（校验权限字符串）。
 - 权限模型：`RolePermissionsMap` 在 `internal/middleware/permissions.go`，支持通配符（如 `plan:*` 表示该模块所有动作）。
   - `admin` / `manager`：拥有全部权限（代码中直接短路放行）。
-  - `pattern_maker`：开放计划、版型、比例与任务模块（如 `plan:create/read/update/publish/freeze`，`layout:create/read/update/delete`，`task:create/read/delete`）。
+  - `pattern_maker`（制版员）：可创建、查看、修改、删除计划；可管理版型和任务；**但不能发布计划**（无 `plan:publish` 权限）；**不能查看任务管理页面**（无 `task:read` 权限）；**不能修改已发布计划的备注**（Handler 层业务规则检查）；**只能删除未发布的计划**（Handler 层业务规则检查）；**可以在计划详情中查看任务信息**（通过 `/layouts/:id/tasks` 接口，使用 `layout:read` 权限）。
   - `worker`：允许拉布日志相关与任务查看（如 `log:create/update`、`task:read`）。
 - 业务兜底：除路由权限外，服务/数据库层还包含业务规则，如：
   - 计划发布后限制部分编辑（例如已发布后不可改版型名称）。
@@ -65,7 +65,9 @@ Schema 文件：`migrations/000001_initial_schema.up.sql`（含触发器与约�
 权限矩阵（精选）：
 - `admin`：全模块全动作；可管理订单、计划、版型、任务、日志、参与者。**限制**：不能修改/删除/停用自己；不能创建新的 Admin（系统只需一个）。
 - `manager`：与 `admin` 等价全访问。**限制**：不能操作 Admin；不能修改/删除/停用自己；不能创建 Admin 或新的 Manager（系统只需一个）。
-- `pattern_maker`：计划/版型/比例/任务模块可读写；不可查看任务日志列表或参与者。
+- `pattern_maker`（制版员）：
+  - **可操作**：创建/查看/修改/删除计划（仅未发布状态）；管理版型和任务（创建/删除任务，但不查看任务管理页面）；查看订单。
+  - **不可操作**：发布计划（无 `plan:publish` 权限）；冻结计划（无 `plan:freeze` 权限）；修改已发布计划的备注（Handler 层业务规则）；删除已发布的计划（Handler 层业务规则）；查看任务管理页面（无 `task:read` 权限）；查看日志记录（无 `log:create` 权限）。
 - `worker`：任务可读、日志可提交与作废；不可查看日志列表、不可修改计划/版型/订单。
 
 流程示意：
@@ -79,7 +81,7 @@ Schema 文件：`migrations/000001_initial_schema.up.sql`（含触发器与约�
 集成测试文件：`test/integration/rbac_roles_integration_test.go`
 - Manager 全访问：覆盖创建订单、计划、版型、任务、日志；可查看任务日志列表。
 - Worker 日志与任务：可创建/作废日志、阅读任务与按版型列任务；禁止查看任务日志列表（期待 `403`）。
-- Pattern Maker 模块访问：可创建计划/版型/任务、发布计划；在发布前可更新版型名称，发布后可更新计划备注；禁止查看任务日志列表（期待 `403`）。
+- Pattern Maker 模块访问：可创建计划/版型/任务；**不能发布计划**（无 `plan:publish` 权限）；在发布前可更新版型名称；**不能修改已发布计划的备注**（Handler 层业务规则）；可通过 `layout:read` 权限在计划详情中查看任务信息；禁止查看任务管理页面和任务日志列表（期待 `403`）。
 - Admin 订单与日志：可创建订单并查看任务参与者列表。
 
 运行方式：
