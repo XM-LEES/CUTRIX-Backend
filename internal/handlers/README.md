@@ -157,6 +157,20 @@ This document summarizes the REST endpoints exposed by the server, mapped to Use
   - Response: `204 No Content`
   - Notes: Allowed after publish.
 
+- POST `/api/v1/layouts/:id/ratios`
+  - Request: `{ ratios: {...} }`
+  - Response: `204 No Content`
+  - Notes: Sets size ratios for a layout. Only allowed when plan is `pending`.
+
+- GET `/api/v1/layouts/:id/ratios`
+  - Response: `[]LayoutSizeRatio`
+  - Notes: Returns size ratios for a single layout.
+
+- POST `/api/v1/layouts/ratios/batch`
+  - Request: `{ layout_ids: [1, 2, 3, ...] }`
+  - Response: `{ layout_id: []LayoutSizeRatio, ... }`
+  - Notes: Batch retrieve ratios for multiple layouts. Useful for performance optimization.
+
 ## Tasks
 - POST `/api/v1/tasks`
   - Request: `ProductionTask` fields

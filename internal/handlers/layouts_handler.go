@@ -25,6 +25,7 @@ func (h *LayoutsHandler) Register(r *gin.RouterGroup) {
     r.PATCH("/layouts/:id/note", h.updateNote)
     r.POST("/layouts/:id/ratios", h.setRatios)
     r.GET("/layouts/:id/ratios", h.getRatios)
+    r.POST("/layouts/ratios/batch", h.getRatiosBatch)
 }
 
 // RegisterProtected registers routes with permissions applied. Use on authenticated groups.
@@ -38,6 +39,7 @@ func (h *LayoutsHandler) RegisterProtected(r *gin.RouterGroup) {
     r.PATCH("/layouts/:id/note", middleware.RequirePermissions("layout:update"), h.updateNote)
     r.POST("/layouts/:id/ratios", middleware.RequirePermissions("layout_ratios:create"), h.setRatios)
     r.GET("/layouts/:id/ratios", middleware.RequirePermissions("layout_ratios:read"), h.getRatios)
+    r.POST("/layouts/ratios/batch", middleware.RequirePermissions("layout_ratios:read"), h.getRatiosBatch)
 }
 
 func (h *LayoutsHandler) create(c *gin.Context) {
@@ -116,6 +118,15 @@ func (h *LayoutsHandler) getRatios(c *gin.Context) {
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_id"}); return }
     out, err := h.svc.GetRatios(id)
+    if err != nil { writeSvcError(c, err); return }
+    c.JSON(http.StatusOK, out)
+}
+
+func (h *LayoutsHandler) getRatiosBatch(c *gin.Context) {
+    if h.svc == nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error":"db_not_configured"}); return }
+    var body struct{ LayoutIDs []int `json:"layout_ids"` }
+    if err := c.ShouldBindJSON(&body); err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid_json"}); return }
+    out, err := h.svc.GetRatiosBatch(body.LayoutIDs)
     if err != nil { writeSvcError(c, err); return }
     c.JSON(http.StatusOK, out)
 }

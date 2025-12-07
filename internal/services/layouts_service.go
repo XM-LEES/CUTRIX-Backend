@@ -31,4 +31,6 @@ import "cutrix-backend/internal/models"
     SetRatios(id int, ratios map[string]int) error
     // 尺码比例：获取布局的尺码比例。
     GetRatios(id int) ([]models.LayoutSizeRatio, error)
+    // 尺码比例：批量获取多个布局的尺码比例。
+    GetRatiosBatch(layoutIDs []int) (map[int][]models.LayoutSizeRatio, error)
 }

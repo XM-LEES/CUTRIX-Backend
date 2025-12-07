@@ -125,3 +125,18 @@ func (s *layoutsService) GetRatios(id int) ([]models.LayoutSizeRatio, error) {
     }
     return s.repo.GetRatios(context.Background(), id)
 }
+
+// GetRatiosBatch 批量获取多个布局的尺码比例。
+// layoutIDs：布局 ID 列表。
+// 返回：布局ID到尺码比例列表的映射与错误。
+func (s *layoutsService) GetRatiosBatch(layoutIDs []int) (map[int][]models.LayoutSizeRatio, error) {
+    if len(layoutIDs) == 0 {
+        return make(map[int][]models.LayoutSizeRatio), nil
+    }
+    for _, id := range layoutIDs {
+        if id <= 0 {
+            return nil, errors.New("invalid layout_id in batch")
+        }
+    }
+    return s.repo.GetRatiosBatch(context.Background(), layoutIDs)
+}

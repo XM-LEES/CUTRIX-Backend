@@ -184,3 +184,42 @@ func (r *SqlLayoutsRepository) GetRatios(ctx context.Context, layoutID int) ([]m
     }
     return res, rows.Err()
 }
+
+// GetRatiosBatch retrieves size ratios for multiple layouts in a single query.
+func (r *SqlLayoutsRepository) GetRatiosBatch(ctx context.Context, layoutIDs []int) (map[int][]models.LayoutSizeRatio, error) {
+    if len(layoutIDs) == 0 {
+        return make(map[int][]models.LayoutSizeRatio), nil
+    }
+    
+    // Build query with IN clause using placeholders
+    args := make([]interface{}, len(layoutIDs))
+    placeholderStr := ""
+    for i, id := range layoutIDs {
+        if i > 0 {
+            placeholderStr += ", "
+        }
+        placeholderStr += fmt.Sprintf("$%d", i+1)
+        args[i] = id
+    }
+    
+    q := fmt.Sprintf(
+        `SELECT ratio_id, layout_id, size, ratio FROM production.layout_size_ratios WHERE layout_id IN (%s) ORDER BY layout_id, size`,
+        placeholderStr,
+    )
+    
+    rows, err := r.db.QueryContext(ctx, q, args...)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    
+    result := make(map[int][]models.LayoutSizeRatio)
+    for rows.Next() {
+        var ratio models.LayoutSizeRatio
+        if err := rows.Scan(&ratio.RatioID, &ratio.LayoutID, &ratio.Size, &ratio.Ratio); err != nil {
+            return nil, err
+        }
+        result[ratio.LayoutID] = append(result[ratio.LayoutID], ratio)
+    }
+    return result, rows.Err()
+}

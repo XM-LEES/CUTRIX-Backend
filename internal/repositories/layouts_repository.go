@@ -27,4 +27,5 @@ type LayoutsRepository interface {
     // Size Ratios
     SetRatios(ctx context.Context, layoutID int, ratios map[string]int) error
     GetRatios(ctx context.Context, layoutID int) ([]models.LayoutSizeRatio, error)
+    GetRatiosBatch(ctx context.Context, layoutIDs []int) (map[int][]models.LayoutSizeRatio, error)
 }
