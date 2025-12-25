@@ -55,6 +55,8 @@
 - **说明：** 
   - 计划发布后，**只能修改备注**
   - 发布前可以修改其他字段（通过删除重建实现）
+  - `admin` / `manager`：可以修改任何状态计划的备注
+  - `pattern_maker`（制版员）：**只能修改 `pending` 状态计划的备注**，已发布计划（`in_progress`、`completed`、`frozen`）的备注不可修改（Handler 层业务规则检查）
 
 #### ✅ POST `/api/v1/plans/:id/publish`
 - **权限要求：** `plan:publish` 权限
